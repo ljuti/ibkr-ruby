@@ -23,6 +23,10 @@ module Ibkr
         request(:post, path, body: body, headers: headers)
       end
 
+      def post_raw(path, body: {}, headers: {})
+        request_raw(:post, path, body: body, headers: headers)
+      end
+
       def put(path, body: {}, headers: {})
         request(:put, path, body: body, headers: headers)
       end
@@ -51,6 +55,28 @@ module Ibkr
         end
 
         handle_response(response)
+      rescue Faraday::Error => e
+        raise Ibkr::ApiError, "HTTP request failed: #{e.message}"
+      end
+
+      def request_raw(method, path, params: {}, body: {}, headers: {})
+        url = build_url(path)
+        
+        response = connection.send(method) do |req|
+          req.url path
+          req.headers.update(headers)
+          req.headers["Authorization"] = authorization_header(method, url, params, body) if needs_auth?(path)
+          
+          case method
+          when :get, :delete
+            req.params = params
+          when :post, :put
+            req.headers["Content-Type"] = "application/json"
+            req.body = body.to_json unless body.empty?
+          end
+        end
+
+        response  # Return raw response without parsing
       rescue Faraday::Error => e
         raise Ibkr::ApiError, "HTTP request failed: #{e.message}"
       end

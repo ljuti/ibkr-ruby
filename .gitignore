@@ -9,3 +9,9 @@
 
 # rspec failure tracking
 .rspec_status
+
+# Local configuration and sensitive files
+config/ibkr.local.yml
+config/certs/*.pem
+config/certs/*.key
+*.local.yml

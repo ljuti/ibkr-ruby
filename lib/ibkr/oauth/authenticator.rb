@@ -100,7 +100,7 @@ module Ibkr
       private
 
       def request_live_session_token
-        response = http_client.post("/v1/api/oauth/live_session_token")
+        response = http_client.post_raw("/v1/api/oauth/live_session_token")
         
         unless response.success?
           raise Ibkr::AuthenticationError.from_response(response)
