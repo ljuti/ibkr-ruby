@@ -3,31 +3,31 @@
 module Ibkr
   class ApiError < BaseError
     def initialize(message = "API request failed", **options)
-      super(message, **options)
+      super
     end
 
     # Specific API error types
     class BadRequest < ApiError
       def initialize(message = "Bad request - check your parameters")
-        super(message)
+        super
       end
     end
 
     class NotFound < ApiError
       def initialize(message = "Resource not found")
-        super(message)
+        super
       end
     end
 
     class ServerError < ApiError
       def initialize(message = "Server error occurred")
-        super(message)
+        super
       end
     end
 
     class ServiceUnavailable < ApiError
       def initialize(message = "Service temporarily unavailable")
-        super(message)
+        super
       end
     end
 

@@ -12,15 +12,15 @@ module Ibkr
     # Re-export models under Accounts namespace for test compatibility
     Summary = Models::AccountSummary
     AccountValue = Models::AccountValue
-    Position = Models::Position  
+    Position = Models::Position
     Transaction = Models::Transaction
-    
+
     def initialize(client)
-      super(client)
+      super
       # Use the expected instance variable name for tests
       @_client = @client
     end
-    
+
     # Make account_id public for tests
     def account_id
       super

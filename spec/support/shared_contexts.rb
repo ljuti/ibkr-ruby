@@ -10,9 +10,7 @@ RSpec.shared_context "with mocked Rails credentials" do
           consumer_key: "test_consumer_key",
           access_token: "test_access_token",
           access_token_secret: Base64.encode64("test_secret"),
-          base_url: "https://api.ibkr.com"
-        )
-      )
+          base_url: "https://api.ibkr.com"))
     )
     credentials_double
   end
@@ -21,9 +19,8 @@ RSpec.shared_context "with mocked Rails credentials" do
     # Create a fresh Rails double for each test
     rails_double = double("Rails",
       application: double("application", credentials: mock_credentials),
-      logger: double("logger", error: nil, debug: nil, warn: nil)
-    )
-    
+      logger: double("logger", error: nil, debug: nil, warn: nil))
+
     stub_const("Rails", rails_double)
   end
 end
@@ -33,10 +30,9 @@ RSpec.shared_context "with mocked cryptographic keys" do
   let(:mock_g) { double("g", mod_exp: double("result", to_s: "abcdef123456")) }
   let(:mock_rsa_key) do
     decrypted_string = "decrypted_mock_secret"
-    double("RSA key", 
-      sign: "mock_signature_bytes", 
-      private_decrypt: decrypted_string
-    )
+    double("RSA key",
+      sign: "mock_signature_bytes",
+      private_decrypt: decrypted_string)
   end
   let(:mock_dh_param) { double("DH param", p: mock_p, g: mock_g) }
 
@@ -44,31 +40,31 @@ RSpec.shared_context "with mocked cryptographic keys" do
     allow(File).to receive(:read).with("./config/certs/private_encryption.pem").and_return("mock_encryption_key")
     allow(File).to receive(:read).with("./config/certs/dhparam.pem").and_return("mock_dh_param")
     allow(File).to receive(:read).with("./config/certs/private_signature.pem").and_return("mock_signature_key")
-    
+
     allow(OpenSSL::PKey::RSA).to receive(:new).and_return(mock_rsa_key)
     allow(OpenSSL::PKey::DH).to receive(:new).and_return(mock_dh_param)
-    
+
     # Mock Base64 operations for consistent test behavior
     allow(Base64).to receive(:strict_encode64).with("mock_signature_bytes").and_return("bW9ja19zaWduYXR1cmVfYnl0ZXM=")
     allow(Base64).to receive(:strict_encode64).with(kind_of(String)).and_return("bW9ja19lbmNvZGVkX3ZhbHVl")
-    
+
     # Mock OpenSSL::BN operations for DH computations
     allow(OpenSSL::BN).to receive(:new).and_call_original
     allow(OpenSSL::BN).to receive(:new).with(kind_of(String), 16).and_return(
       double("BN", mod_exp: double("result", to_s: "computed_value", num_bits: 256))
     )
-    
+
     # Mock configuration to return our mocked crypto objects
     allow_any_instance_of(Ibkr::Configuration).to receive(:encryption_key).and_return(mock_rsa_key)
     allow_any_instance_of(Ibkr::Configuration).to receive(:signature_key).and_return(mock_rsa_key)
     allow_any_instance_of(Ibkr::Configuration).to receive(:dh_params).and_return(mock_dh_param)
-    
+
     # Mock signature generator methods to avoid complex crypto operations
     allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:generate_rsa_signature).and_return("mock_signature")
     allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:generate_dh_challenge).and_return("abcdef123456")
     allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:compute_live_session_token).and_return("computed_token")
     allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:decrypt_prepend).and_return("mock_prepend")
-    
+
     # Mock LiveSessionToken validation to return true for test scenarios
     allow_any_instance_of(Ibkr::Oauth::LiveSessionToken).to receive(:valid?).and_return(true)
     allow_any_instance_of(Ibkr::Oauth::LiveSessionToken).to receive(:expired?).and_return(false)
@@ -87,7 +83,7 @@ end
 
 RSpec.shared_context "with mocked IBKR API" do
   let(:base_url) { "https://api.ibkr.com" }
-  
+
   # Make sure configuration returns the base URL we're mocking
   before do
     allow_any_instance_of(Ibkr::Configuration).to receive(:base_url).and_return(base_url)
@@ -99,13 +95,13 @@ RSpec.shared_context "with mocked IBKR API" do
       "live_session_token_expiration" => (Time.now + 3600).to_i
     }
   end
-  let(:successful_logout_response) { { "status" => "logged_out" } }
-  let(:successful_session_response) { { "connected" => true, "authenticated" => true } }
+  let(:successful_logout_response) { {"status" => "logged_out"} }
+  let(:successful_session_response) { {"connected" => true, "authenticated" => true} }
   let(:successful_account_summary) do
     {
-      "netliquidation" => { "amount" => 100000.0, "currency" => "USD" },
-      "availablefunds" => { "amount" => 50000.0, "currency" => "USD" },
-      "buyingpower" => { "amount" => 75000.0, "currency" => "USD" }
+      "netliquidation" => {"amount" => 100000.0, "currency" => "USD"},
+      "availablefunds" => {"amount" => 50000.0, "currency" => "USD"},
+      "buyingpower" => {"amount" => 75000.0, "currency" => "USD"}
     }
   end
   let(:successful_positions_response) do
@@ -133,7 +129,7 @@ RSpec.shared_context "with mocked IBKR API" do
       .to_return(
         status: 200,
         body: successful_auth_response.to_json,
-        headers: { "Content-Type" => "application/json" }
+        headers: {"Content-Type" => "application/json"}
       )
 
     # Mock logout endpoint
@@ -141,7 +137,7 @@ RSpec.shared_context "with mocked IBKR API" do
       .to_return(
         status: 200,
         body: successful_logout_response.to_json,
-        headers: { "Content-Type" => "application/json" }
+        headers: {"Content-Type" => "application/json"}
       )
 
     # Mock session initialization endpoint
@@ -149,7 +145,7 @@ RSpec.shared_context "with mocked IBKR API" do
       .to_return(
         status: 200,
         body: successful_session_response.to_json,
-        headers: { "Content-Type" => "application/json" }
+        headers: {"Content-Type" => "application/json"}
       )
 
     # Mock account summary endpoint
@@ -157,7 +153,7 @@ RSpec.shared_context "with mocked IBKR API" do
       .to_return(
         status: 200,
         body: successful_account_summary.to_json,
-        headers: { "Content-Type" => "application/json" }
+        headers: {"Content-Type" => "application/json"}
       )
 
     # Mock positions endpoint
@@ -165,15 +161,15 @@ RSpec.shared_context "with mocked IBKR API" do
       .to_return(
         status: 200,
         body: successful_positions_response.to_json,
-        headers: { "Content-Type" => "application/json" }
+        headers: {"Content-Type" => "application/json"}
       )
 
     # Mock ping/tickle endpoint
     stub_request(:post, "#{base_url}/v1/api/tickle")
       .to_return(
         status: 200,
-        body: { "status" => "ok" }.to_json,
-        headers: { "Content-Type" => "application/json" }
+        body: {"status" => "ok"}.to_json,
+        headers: {"Content-Type" => "application/json"}
       )
   end
 end
@@ -187,8 +183,7 @@ RSpec.shared_context "with authenticated oauth client" do
     instance_double("Ibkr::Oauth::LiveSessionToken",
       token: "valid_token",
       valid?: true,
-      expired?: false
-    )
+      expired?: false)
   end
 
   let(:oauth_client) do

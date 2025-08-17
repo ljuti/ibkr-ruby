@@ -24,22 +24,22 @@ RSpec.describe "OAuth Authentication Behavior" do
       it "successfully authenticates and provides access to trading operations" do
         # When user authenticates with valid credentials
         result = oauth_client.authenticate
-        
+
         # Then authentication should succeed, giving user access to trading
         expect(result).to be(true), "Authentication should succeed with valid credentials, but user got access denied"
-        
+
         # And user should have secure access for trading operations
         expect(oauth_client.authenticated?).to be(true), "User should be in authenticated state for trading operations"
         expect(oauth_client.token).not_to be_nil, "User should have session token for API access"
       end
 
       it "enables trading operations after successful authentication" do
-        result = oauth_client.authenticate
-        
+        oauth_client.authenticate
+
         # When user attempts authentication for trading access
         # Then they should gain access to trading operations
         expect(oauth_client.authenticated?).to be(true), "User should be authenticated and ready for trading operations"
-        
+
         # And trading session should be properly established
         expect(oauth_client.token).not_to be_nil, "User should have session token enabling API trading requests"
       end
@@ -52,7 +52,7 @@ RSpec.describe "OAuth Authentication Behavior" do
           .to_return(
             status: 401,
             body: '{"error": "invalid_credentials"}',
-            headers: { "Content-Type" => "application/json" }
+            headers: {"Content-Type" => "application/json"}
           )
       end
 
@@ -62,7 +62,7 @@ RSpec.describe "OAuth Authentication Behavior" do
         expect { oauth_client.authenticate }.to raise_error(StandardError) do |error|
           expect(error.message.downcase).to include("credential").or include("unauthorized").or include("authentication")
         end
-        
+
         # And user should not be authenticated
         expect(oauth_client.authenticated?).to be false
       end
@@ -74,9 +74,8 @@ RSpec.describe "OAuth Authentication Behavior" do
         valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
           token: "valid_token",
           valid?: true,
-          expired?: false
-        )
-        
+          expired?: false)
+
         # Set up the authenticator state directly
         authenticator = oauth_client.authenticator
         authenticator.instance_variable_set(:@current_token, valid_token)
@@ -85,15 +84,15 @@ RSpec.describe "OAuth Authentication Behavior" do
       it "allows user to logout and clear session" do
         # Given an authenticated session
         expect(oauth_client.authenticated?).to be true
-        
+
         # When user logs out (already mocked by "with mocked IBKR API")
-        
+
         result = oauth_client.logout
-        
+
         # Then session should be terminated
         expect(result).to be true
         expect(oauth_client.authenticated?).to be false
-        
+
         # Check that token was cleared from authenticator
         authenticator = oauth_client.authenticator
         expect(authenticator.current_token).to be_nil
@@ -102,11 +101,11 @@ RSpec.describe "OAuth Authentication Behavior" do
       it "enables brokerage session initialization for trading" do
         # Given an authenticated session
         expect(oauth_client.authenticated?).to be true
-        
+
         # When user initializes brokerage session (already mocked by "with mocked IBKR API")
-        
+
         result = oauth_client.initialize_session
-        
+
         # Then brokerage session should be ready for trading
         expect(result).to be_a(Hash)
         expect(result).to have_key("connected")
@@ -121,17 +120,16 @@ RSpec.describe "OAuth Authentication Behavior" do
       expired_token = instance_double("Ibkr::Oauth::LiveSessionToken",
         token: "expired_token",
         valid?: false,
-        expired?: true
-      )
-      
+        expired?: true)
+
       # Set up the authenticator state directly
       authenticator = oauth_client.authenticator
       authenticator.instance_variable_set(:@current_token, expired_token)
-      
+
       # When checking authentication status
       # Then user should know token is expired
       expect(oauth_client.authenticated?).to be false
-      
+
       # Access token directly from authenticator to check expiry
       current_token = authenticator.current_token
       expect(current_token.expired?).to be true
@@ -142,13 +140,12 @@ RSpec.describe "OAuth Authentication Behavior" do
       valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
         token: "valid_token",
         valid?: true,
-        expired?: false
-      )
-      
+        expired?: false)
+
       # Set up the authenticator state directly
       authenticator = oauth_client.authenticator
       authenticator.instance_variable_set(:@current_token, valid_token)
-      
+
       # When user accesses token
       # Then they should have a valid session
       expect(oauth_client.authenticated?).to be true
@@ -160,7 +157,7 @@ RSpec.describe "OAuth Authentication Behavior" do
     it "handles network connectivity issues" do
       # When network is unavailable
       stub_request(:post, "#{base_url}/v1/api/oauth/live_session_token").to_raise(Faraday::ConnectionFailed.new("Network error"))
-      
+
       # Then user should get clear error about connectivity
       expect { oauth_client.authenticate }.to raise_error(StandardError) do |error|
         expect(error.message).to include("Network error")
@@ -173,9 +170,9 @@ RSpec.describe "OAuth Authentication Behavior" do
         .to_return(
           status: 503,
           body: '{"error": "service_unavailable"}',
-          headers: { "Content-Type" => "application/json" }
+          headers: {"Content-Type" => "application/json"}
         )
-      
+
       # Then user should understand it's a temporary issue
       expect { oauth_client.authenticate }.to raise_error(StandardError) do |error|
         expect(error.message.downcase).to include("unavailable").or include("service").or include("maintenance").or include("503")

@@ -39,12 +39,12 @@ module Ibkr
 
       def request(method, path, params: {}, body: {}, headers: {})
         url = build_url(path)
-        
+
         response = connection.send(method) do |req|
           req.url path
           req.headers.update(headers)
           req.headers["Authorization"] = authorization_header(method, url, params, body) if needs_auth?(path)
-          
+
           case method
           when :get, :delete
             req.params = params
@@ -61,12 +61,12 @@ module Ibkr
 
       def request_raw(method, path, params: {}, body: {}, headers: {})
         url = build_url(path)
-        
-        response = connection.send(method) do |req|
+
+        connection.send(method) do |req|
           req.url path
           req.headers.update(headers)
           req.headers["Authorization"] = authorization_header(method, url, params, body) if needs_auth?(path)
-          
+
           case method
           when :get, :delete
             req.params = params
@@ -76,7 +76,7 @@ module Ibkr
           end
         end
 
-        response  # Return raw response without parsing
+      # Return raw response without parsing
       rescue Faraday::Error => e
         raise Ibkr::ApiError, "HTTP request failed: #{e.message}"
       end
@@ -87,11 +87,11 @@ module Ibkr
           conn.headers["Accept"] = "application/json"
           conn.headers["Accept-Encoding"] = "gzip,deflate"
           conn.headers["Connection"] = "keep-alive"
-          
+
           # Note: Retry middleware commented out due to dependency issues
           # conn.request :retry, max: config.retries, retry_statuses: [429, 500, 502, 503, 504]
           conn.options.timeout = config.timeout
-          
+
           conn.adapter Faraday.default_adapter
         end
       end
@@ -111,9 +111,9 @@ module Ibkr
         if url.include?("/oauth/live_session_token")
           "OAuth #{@authenticator.oauth_header_for_authentication}"
         else
-          query_params = method == :get ? params : {}
+          query_params = (method == :get) ? params : {}
           request_body = [:post, :put].include?(method) ? body : {}
-          
+
           "OAuth #{@authenticator.oauth_header_for_api_request(
             method: method.to_s.upcase,
             url: url.split("?").first,
@@ -143,9 +143,9 @@ module Ibkr
 
       def parse_successful_response(response)
         content = decompress_if_needed(response)
-        
+
         return nil if content.nil? || content.empty?
-        
+
         # Try to parse as JSON, return raw content if it fails
         begin
           JSON.parse(content)
@@ -157,7 +157,7 @@ module Ibkr
       def decompress_if_needed(response)
         content = response.body
         encoding = response.headers["content-encoding"]
-        
+
         if encoding&.include?("gzip")
           Zlib::GzipReader.new(StringIO.new(content)).read
         elsif encoding&.include?("deflate")
@@ -181,7 +181,7 @@ module Ibkr
         end
 
         def success?
-          (200..299).include?(status)
+          (200..299).cover?(status)
         end
 
         def data

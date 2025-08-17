@@ -28,7 +28,7 @@ RSpec.describe Ibkr::Accounts::Position do
         # Given valid position data from IBKR portfolio API
         # When creating a Position instance
         position = described_class.new(valid_position_data)
-        
+
         # Then it should contain all position details
         expect(position.conid).to eq("265598")
         expect(position.position).to eq(100)
@@ -39,13 +39,13 @@ RSpec.describe Ibkr::Accounts::Position do
 
       it "provides comprehensive position analysis data" do
         position = described_class.new(valid_position_data)
-        
+
         # Financial metrics should be properly typed
         expect(position.average_cost).to be_a(Numeric)
         expect(position.market_price).to be_a(Numeric)
         expect(position.unrealized_pnl).to be_a(Numeric)
         expect(position.realized_pnl).to be_a(Numeric)
-        
+
         # Identifiers and descriptions should be strings
         expect(position.conid).to be_a(String)
         expect(position.currency).to be_a(String)
@@ -66,7 +66,7 @@ RSpec.describe Ibkr::Accounts::Position do
           security_type: "STK",
           asset_class: "STOCK"
         )
-        
+
         position = described_class.new(stock_position)
         expect(position.security_type).to eq("STK")
         expect(position.asset_class).to eq("STOCK")
@@ -81,7 +81,7 @@ RSpec.describe Ibkr::Accounts::Position do
           position: 5,  # 5 contracts
           market_value: 2500.00
         )
-        
+
         position = described_class.new(option_data)
         expect(position.security_type).to eq("OPT")
         expect(position.asset_class).to eq("OPTION")
@@ -98,7 +98,7 @@ RSpec.describe Ibkr::Accounts::Position do
           currency: "EUR",
           position: 10000.00
         )
-        
+
         position = described_class.new(forex_data)
         expect(position.security_type).to eq("CASH")
         expect(position.asset_class).to eq("CURRENCY")
@@ -118,7 +118,7 @@ RSpec.describe Ibkr::Accounts::Position do
 
       it "coerces string numbers to proper numeric types" do
         position = described_class.new(string_numeric_data)
-        
+
         expect(position.position).to eq(100)
         expect(position.position).to be_a(Integer)
         expect(position.average_cost).to eq(150.25)
@@ -133,7 +133,7 @@ RSpec.describe Ibkr::Accounts::Position do
           unrealized_pnl: -750.25,
           market_value: -8137.50
         )
-        
+
         position = described_class.new(short_position_data)
         expect(position.position).to eq(-50)
         expect(position.unrealized_pnl).to eq(-750.25)
@@ -161,7 +161,7 @@ RSpec.describe Ibkr::Accounts::Position do
 
       it "handles missing optional cost data" do
         position = described_class.new(minimal_position_data)
-        
+
         expect(position.conid).to eq("265598")
         expect(position.position).to eq(100)
         expect(position.market_value).to eq(16275.00)
@@ -174,7 +174,7 @@ RSpec.describe Ibkr::Accounts::Position do
     context "when calculating position metrics" do
       it "provides data for profit/loss calculations" do
         position = described_class.new(valid_position_data)
-        
+
         # Should have all components for P&L analysis
         expect(position.unrealized_pnl).to be > 0  # Profitable position
         expect(position.market_value).to be > (position.average_cost * position.position)
@@ -187,7 +187,7 @@ RSpec.describe Ibkr::Accounts::Position do
           market_value: 14000.00,
           unrealized_pnl: -1025.00
         )
-        
+
         position = described_class.new(losing_position_data)
         expect(position.unrealized_pnl).to be < 0
         expect(position.market_price).to be < position.average_cost
@@ -199,21 +199,21 @@ RSpec.describe Ibkr::Accounts::Position do
     context "when required attributes are missing" do
       it "raises error for missing contract ID" do
         invalid_data = valid_position_data.except(:conid)
-        
+
         expect { described_class.new(invalid_data) }.to raise_error(Dry::Struct::Error)
       end
 
       it "raises error for missing position size" do
         invalid_data = valid_position_data.except(:position)
-        
+
         expect { described_class.new(invalid_data) }.to raise_error(Dry::Struct::Error)
       end
 
-      %i[currency description unrealized_pnl realized_pnl market_value 
-         market_price security_type asset_class sector group].each do |required_field|
+      %i[currency description unrealized_pnl realized_pnl market_value
+        market_price security_type asset_class sector group].each do |required_field|
         it "raises error for missing #{required_field}" do
           invalid_data = valid_position_data.except(required_field)
-          
+
           expect { described_class.new(invalid_data) }.to raise_error(Dry::Struct::Error)
         end
       end
@@ -222,13 +222,13 @@ RSpec.describe Ibkr::Accounts::Position do
     context "when attributes have wrong types" do
       it "raises error for non-numeric position" do
         invalid_data = valid_position_data.merge(position: "not_a_number")
-        
+
         expect { described_class.new(invalid_data) }.to raise_error(Dry::Struct::Error)
       end
 
       it "raises error for non-string description" do
         invalid_data = valid_position_data.merge(description: 123456)
-        
+
         expect { described_class.new(invalid_data) }.to raise_error(Dry::Struct::Error)
       end
     end
@@ -252,9 +252,9 @@ RSpec.describe Ibkr::Accounts::Position do
         sector: "Technology",
         group: "Technology - Software"
       }
-      
+
       position = described_class.new(equity_position)
-      
+
       expect(position.description).to eq("MICROSOFT CORP")
       expect(position.position).to eq(200)
       expect(position.unrealized_pnl).to be > 0
@@ -278,9 +278,9 @@ RSpec.describe Ibkr::Accounts::Position do
         sector: "Technology",
         group: "Technology - Semiconductors"
       }
-      
+
       position = described_class.new(international_position)
-      
+
       expect(position.currency).to eq("EUR")
       expect(position.description).to include("ASML")
       expect(position.position).to eq(500)
@@ -293,9 +293,9 @@ RSpec.describe Ibkr::Accounts::Position do
         unrealized_pnl: 0.00,
         realized_pnl: 275.50  # Only realized P&L remains
       )
-      
+
       position = described_class.new(closed_position)
-      
+
       expect(position.position).to eq(0)
       expect(position.market_value).to eq(0.00)
       expect(position.unrealized_pnl).to eq(0.00)

@@ -9,7 +9,7 @@ require_relative "ibkr/errors/api_error"
 require_relative "ibkr/errors/configuration_error"
 require_relative "ibkr/errors/rate_limit_error"
 require_relative "ibkr/oauth"
-require_relative "ibkr/accounts" 
+require_relative "ibkr/accounts"
 require_relative "ibkr/client"
 
 module Ibkr

@@ -17,7 +17,7 @@ RSpec.describe Ibkr::Oauth::LiveSessionToken do
   describe "initialization" do
     it "stores token, signature, and expiration data" do
       token = described_class.new(valid_token, valid_signature, future_expiration)
-      
+
       expect(token.token).to eq(valid_token)
       expect(token.expires_in).to eq(future_expiration)
       expect(token.instance_variable_get(:@signature)).to eq(valid_signature)
@@ -48,7 +48,7 @@ RSpec.describe Ibkr::Oauth::LiveSessionToken do
       it "handles invalid expiration gracefully and returns true" do
         allow(Rails.logger).to receive(:error)
         token = described_class.new(valid_token, valid_signature, "invalid_timestamp")
-        
+
         expect(token.expired?).to be true
         expect(Rails.logger).to have_received(:error).with(/Invalid expiration time/)
       end
@@ -69,7 +69,7 @@ RSpec.describe Ibkr::Oauth::LiveSessionToken do
         # Given a token with a valid signature
         # When signature validation is performed
         result = live_session_token.valid_signature?
-        
+
         # Then it should use proper cryptographic validation
         expect(OpenSSL::HMAC).to have_received(:hexdigest).with(
           "sha1",
@@ -102,7 +102,7 @@ RSpec.describe Ibkr::Oauth::LiveSessionToken do
         # Remove the secure_compare mock so the real implementation gets called
         allow(live_session_token).to receive(:secure_compare).and_call_original
       end
-      
+
       subject { live_session_token.valid_signature? }
     end
   end
@@ -162,11 +162,11 @@ RSpec.describe Ibkr::Oauth::LiveSessionToken do
       # Given an expired token
       expired_token = described_class.new(valid_token, valid_signature, past_expiration)
       expect(expired_token.valid?).to be false
-      
+
       # When a new token is created with fresh expiration
       refreshed_token = described_class.new(valid_token, valid_signature, future_expiration)
       allow(refreshed_token).to receive(:valid_signature?).and_return(true)
-      
+
       # Then the new token should be valid
       expect(refreshed_token.valid?).to be true
     end
@@ -175,10 +175,10 @@ RSpec.describe Ibkr::Oauth::LiveSessionToken do
       # Given a token structure as returned by IBKR
       api_token = described_class.new(
         "YXBpX3Rva2VuX2Zyb21faWJrcg==",
-        "api_signature_from_ibkr", 
+        "api_signature_from_ibkr",
         (Time.now + 1800).to_i
       )
-      
+
       # When validating the token structure
       # Then it should be properly initialized
       expect(api_token.token).to eq("YXBpX3Rva2VuX2Zyb21faWJrcg==")

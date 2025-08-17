@@ -74,7 +74,7 @@ module Ibkr
       # Check if account has sufficient buying power
       def sufficient_buying_power?(amount)
         return false unless buying_power_amount
-        
+
         buying_power_amount >= amount
       end
 

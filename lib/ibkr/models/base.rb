@@ -7,7 +7,7 @@ module Ibkr
     class Base < Dry::Struct
       # Transform keys from strings to symbols
       transform_keys(&:to_sym)
-      
+
       # Make attributes accessible
       def to_h
         super.compact
@@ -25,7 +25,7 @@ module Ibkr
       # Get attribute value with default
       def attribute_value(name, default = nil)
         return default unless has_attribute?(name)
-        
+
         value = send(name)
         value.nil? ? default : value
       end

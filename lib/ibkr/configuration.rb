@@ -6,26 +6,26 @@ require "openssl"
 module Ibkr
   class Configuration < Anyway::Config
     config_name :ibkr
-    
+
     # Environment and connection settings
     attr_config :environment, :base_url, :timeout, :retries
-    
+
     # OAuth credentials
     attr_config :consumer_key, :access_token, :access_token_secret
-    
+
     # Cryptographic key file paths
     attr_config :private_key_path, :signature_key_path, :dh_param_path
-    
+
     # Direct key content (for testing or containers)
     attr_config :private_key_content, :signature_key_content, :dh_param_content
-    
+
     # Optional settings
     attr_config :logger_level, :user_agent
 
     # Defaults
     def initialize(*)
       super
-      
+
       self.environment ||= "sandbox"
       self.timeout ||= 30
       self.retries ||= 3
@@ -50,20 +50,20 @@ module Ibkr
     # Validation
     def validate!
       errors = []
-      
+
       errors << "consumer_key is required" if consumer_key.nil? || consumer_key.empty?
       errors << "access_token is required" if access_token.nil? || access_token.empty?
       errors << "access_token_secret is required" if access_token_secret.nil? || access_token_secret.empty?
       errors << "environment must be 'sandbox' or 'production'" unless %w[sandbox production].include?(environment)
-      
+
       unless crypto_keys_available?
         errors << "cryptographic keys must be provided (either as file paths or content)"
       end
-      
+
       unless errors.empty?
         raise Ibkr::ConfigurationError, "Configuration invalid: #{errors.join(", ")}"
       end
-      
+
       true
     end
 
@@ -107,8 +107,8 @@ module Ibkr
     def has_key?(key_type)
       path_attr = "#{key_type}_path"
       content_attr = "#{key_type}_content"
-      
-      (send(path_attr) && File.exist?(send(path_attr))) || 
+
+      (send(path_attr) && File.exist?(send(path_attr))) ||
         !send(content_attr).nil?
     end
 
@@ -129,16 +129,16 @@ module Ibkr
     def load_key_content(key_type)
       path_attr = "#{key_type}_path"
       content_attr = "#{key_type}_content"
-      
+
       # Try content first, then file path
       content = send(content_attr)
       return content unless content.nil?
-      
+
       path = send(path_attr)
       if path && File.exist?(path)
         File.read(path)
       else
-        raise Ibkr::ConfigurationError, "#{key_type.to_s.gsub('_', ' ')} not found: #{path || 'no path provided'}"
+        raise Ibkr::ConfigurationError, "#{key_type.to_s.tr("_", " ")} not found: #{path || "no path provided"}"
       end
     end
   end

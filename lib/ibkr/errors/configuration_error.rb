@@ -3,13 +3,13 @@
 module Ibkr
   class ConfigurationError < BaseError
     def initialize(message = "Configuration error", **options)
-      super(message, **options)
+      super
     end
 
     # Specific configuration error types
     class MissingCredentials < ConfigurationError
       def initialize(message = "Required credentials are missing")
-        super(message)
+        super
       end
     end
 
@@ -21,7 +21,7 @@ module Ibkr
 
     class CertificateError < ConfigurationError
       def initialize(message = "Certificate configuration error")
-        super(message)
+        super
       end
     end
 

@@ -37,22 +37,22 @@ module Ibkr
 
       def expiration_time
         return nil if expires_in.nil?
-        
+
         # Validate that expires_in is a reasonable timestamp
         if expires_in.is_a?(String) && expires_in !~ /^\d+$/
           raise ArgumentError, "Invalid timestamp format: #{expires_in}"
         end
-        
+
         # Handle both seconds and milliseconds timestamps
         timestamp = expires_in.to_i
-        timestamp = timestamp / 1000 if timestamp > 4_000_000_000
-        
+        timestamp /= 1000 if timestamp > 4_000_000_000
+
         Time.at(timestamp)
       end
 
       def time_until_expiry
         return nil if expires_in.nil?
-        
+
         [expiration_time - Time.now, 0].max
       end
 
@@ -107,7 +107,7 @@ module Ibkr
         if defined?(Rails) && Rails.respond_to?(:application)
           Rails.application.credentials.dig(:ibkr, :oauth, :consumer_key)
         end
-      rescue => e
+      rescue
         nil
       end
 

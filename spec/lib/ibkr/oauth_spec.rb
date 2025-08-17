@@ -48,10 +48,10 @@ RSpec.describe Ibkr::Oauth do
         # Given user has valid IBKR credentials
         # When they attempt to authenticate
         result = oauth_client.authenticate
-        
+
         # Then authentication should succeed
         expect(result).to be true
-        
+
         # And they should have access to trading operations
         expect(oauth_client.authenticated?).to be true
         expect(oauth_client.token).not_to be_nil
@@ -60,7 +60,7 @@ RSpec.describe Ibkr::Oauth do
       it "maintains authentication state for session duration" do
         # When user successfully authenticates
         oauth_client.authenticate
-        
+
         # Then they should remain authenticated for trading
         expect(oauth_client.authenticated?).to be true
         expect(oauth_client.token).not_to be_nil
@@ -74,7 +74,7 @@ RSpec.describe Ibkr::Oauth do
           .to_return(
             status: 401,
             body: '{"error": "invalid_credentials"}',
-            headers: { "Content-Type" => "application/json" }
+            headers: {"Content-Type" => "application/json"}
           )
       end
 
@@ -85,7 +85,7 @@ RSpec.describe Ibkr::Oauth do
         expect { oauth_client.authenticate }.to raise_error(StandardError) do |error|
           expect(error.message.downcase).to include("credential").or include("unauthorized").or include("authentication")
         end
-        
+
         # And user should not be authenticated
         expect(oauth_client.authenticated?).to be false
       end
@@ -108,12 +108,12 @@ RSpec.describe Ibkr::Oauth do
         # Ensure we start with no existing token to test fresh token generation
         oauth_client.authenticator.instance_variable_set(:@current_token, nil)
       end
-      
+
       it "provides valid session token for trading operations" do
         # Given successful server response (mocked by WebMock)
         # When requesting session token
         token = oauth_client.live_session_token
-        
+
         # Then user should receive valid token for trading
         expect(token).to be_instance_of(Ibkr::Oauth::LiveSessionToken)
         expect(token.valid?).to be true
@@ -134,17 +134,16 @@ RSpec.describe Ibkr::Oauth do
         invalid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
           token: "invalid_token",
           valid?: false,
-          expired?: true
-        )
-        
+          expired?: true)
+
         # Set up the authenticator state directly
         authenticator = oauth_client.authenticator
         authenticator.instance_variable_set(:@current_token, invalid_token)
-        
+
         # When checking authentication with invalid token
         # Then user should know they need to re-authenticate
         expect(oauth_client.authenticated?).to be false
-        
+
         # And requesting a new token should work via refresh mechanism
         # (this will trigger a new token request via our mocked HTTP endpoints)
         new_token = oauth_client.live_session_token
@@ -160,16 +159,15 @@ RSpec.describe Ibkr::Oauth do
         valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
           token: "valid_token",
           valid?: true,
-          expired?: false
-        )
-        
+          expired?: false)
+
         # Set up authenticator state directly
         authenticator = oauth_client.authenticator
         authenticator.instance_variable_set(:@current_token, valid_token)
-        
+
         # When user logs out (logout endpoint mocked by WebMock)
         result = oauth_client.logout
-        
+
         # Then session should be cleanly terminated
         expect(result).to be true
         expect(oauth_client.authenticated?).to be false
@@ -183,13 +181,12 @@ RSpec.describe Ibkr::Oauth do
         valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
           token: "valid_token",
           valid?: true,
-          expired?: false
-        )
-        
+          expired?: false)
+
         # Set up authenticator state directly
         authenticator = oauth_client.authenticator
         authenticator.instance_variable_set(:@current_token, valid_token)
-        
+
         # Override logout endpoint with server error
         stub_request(:post, "#{base_url}/v1/api/logout")
           .to_return(status: 500, body: "Server Error")
@@ -206,16 +203,15 @@ RSpec.describe Ibkr::Oauth do
   end
 
   describe "brokerage session setup" do
-    let(:session_response) { { "connected" => true, "authenticated" => true } }
+    let(:session_response) { {"connected" => true, "authenticated" => true} }
 
     before do
       # Set up authenticated state for session initialization
       valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
         token: "valid_token",
         valid?: true,
-        expired?: false
-      )
-      
+        expired?: false)
+
       # Set up authenticator state directly
       authenticator = oauth_client.authenticator
       authenticator.instance_variable_set(:@current_token, valid_token)
@@ -226,7 +222,7 @@ RSpec.describe Ibkr::Oauth do
         # Given user is authenticated with OAuth
         # When initializing brokerage session (endpoint mocked by WebMock)
         result = oauth_client.initialize_session
-        
+
         # Then trading operations should be available
         expect(result).to eq(session_response)
         expect(result["connected"]).to be true
@@ -239,7 +235,7 @@ RSpec.describe Ibkr::Oauth do
         # Given user needs urgent trading access
         # When requesting priority session (endpoint mocked by WebMock)
         result = oauth_client.initialize_session(priority: true)
-        
+
         # Then priority trading should be enabled
         expect(result).to eq(session_response)
         expect(result["authenticated"]).to be true
@@ -253,9 +249,8 @@ RSpec.describe Ibkr::Oauth do
       valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
         token: "valid_token",
         valid?: true,
-        expired?: false
-      )
-      
+        expired?: false)
+
       # Set up authenticator state directly
       authenticator = oauth_client.authenticator
       authenticator.instance_variable_set(:@current_token, valid_token)
@@ -268,12 +263,12 @@ RSpec.describe Ibkr::Oauth do
           .to_return(
             status: 200,
             body: '{"account_data": "portfolio_info"}',
-            headers: { "Content-Type" => "application/json" }
+            headers: {"Content-Type" => "application/json"}
           )
 
         # When authenticated user requests account information
         result = oauth_client.get("/account/summary")
-        
+
         # Then they should receive their portfolio data
         expect(result).to be_a(Hash)
         expect(result).to have_key("account_data")
@@ -283,7 +278,7 @@ RSpec.describe Ibkr::Oauth do
         # Mock server error
         stub_request(:get, "#{base_url}/account/summary")
           .to_return(status: 500, body: "Internal Server Error")
-        
+
         # When data access fails, user should get clear error message
         expect { oauth_client.get("/account/summary") }.to raise_error(StandardError)
       end
@@ -296,12 +291,12 @@ RSpec.describe Ibkr::Oauth do
           .to_return(
             status: 200,
             body: '{"order_id": "12345", "status": "submitted"}',
-            headers: { "Content-Type" => "application/json" }
+            headers: {"Content-Type" => "application/json"}
           )
 
         # When authenticated user submits trading orders
-        result = oauth_client.post("/orders", body: { symbol: "AAPL", quantity: 100 })
-        
+        result = oauth_client.post("/orders", body: {symbol: "AAPL", quantity: 100})
+
         # Then orders should be processed
         expect(result).to be_a(Hash)
         expect(result).to have_key("order_id")
@@ -311,9 +306,9 @@ RSpec.describe Ibkr::Oauth do
         # Mock order rejection
         stub_request(:post, "#{base_url}/orders")
           .to_return(status: 400, body: "Invalid order parameters")
-        
+
         # When order submission fails, user should get clear error message
-        expect { oauth_client.post("/orders", body: { symbol: "AAPL", quantity: 100 }) }.to raise_error(StandardError)
+        expect { oauth_client.post("/orders", body: {symbol: "AAPL", quantity: 100}) }.to raise_error(StandardError)
       end
     end
   end

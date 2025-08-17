@@ -32,7 +32,7 @@ module Ibkr
         @current_token
       end
 
-      # Alias for compatibility  
+      # Alias for compatibility
       def live_session_token
         token
       end
@@ -53,8 +53,8 @@ module Ibkr
       # Initialize brokerage session
       def initialize_session(priority: false)
         ensure_authenticated!
-        
-        body = { publish: true, compete: priority }
+
+        body = {publish: true, compete: priority}
         response = http_client.post_raw("/v1/api/iserver/auth/ssodh/init", body: body)
 
         if response.success?
@@ -67,7 +67,7 @@ module Ibkr
       # Ping the server to keep session alive
       def ping
         ensure_authenticated!
-        
+
         response = http_client.post_raw("/v1/api/tickle")
         if response.success?
           JSON.parse(response.body)
@@ -85,7 +85,7 @@ module Ibkr
       # Generate OAuth header for API requests
       def oauth_header_for_api_request(method:, url:, query: {}, body: {})
         ensure_authenticated!
-        
+
         params = build_oauth_params_for_api(
           method: method,
           url: url,
@@ -93,7 +93,7 @@ module Ibkr
           body: body,
           live_session_token: @current_token.token
         )
-        
+
         format_oauth_header(params)
       end
 
@@ -101,7 +101,7 @@ module Ibkr
 
       def request_live_session_token
         response = http_client.post_raw("/v1/api/oauth/live_session_token")
-        
+
         unless response.success?
           raise Ibkr::AuthenticationError.from_response(response)
         end
@@ -111,12 +111,12 @@ module Ibkr
 
       def parse_live_session_token_response(response)
         data = JSON.parse(response.body)
-        
+
         # Compute the actual token using Diffie-Hellman
         computed_token = @signature_generator.compute_live_session_token(
           data["diffie_hellman_response"]
         )
-        
+
         Oauth::LiveSessionToken.new(
           computed_token,
           data["live_session_token_signature"],
@@ -130,7 +130,7 @@ module Ibkr
 
       def build_oauth_params_for_authentication
         dh_challenge = @signature_generator.generate_dh_challenge
-        
+
         params = {
           "oauth_consumer_key" => config.consumer_key,
           "oauth_nonce" => @signature_generator.generate_nonce,
@@ -139,12 +139,12 @@ module Ibkr
           "oauth_signature_method" => "RSA-SHA256",
           "diffie_hellman_challenge" => dh_challenge
         }
-        
+
         params["oauth_signature"] = URI.encode_www_form_component(
           @signature_generator.generate_rsa_signature(params)
         )
         params["realm"] = realm
-        
+
         params
       end
 
@@ -156,7 +156,7 @@ module Ibkr
           "oauth_signature_method" => "HMAC-SHA256",
           "oauth_token" => config.access_token
         }
-        
+
         params["oauth_signature"] = @signature_generator.generate_hmac_signature(
           method: method,
           url: url,
@@ -166,7 +166,7 @@ module Ibkr
           live_session_token: live_session_token
         )
         params["realm"] = realm
-        
+
         params
       end
 

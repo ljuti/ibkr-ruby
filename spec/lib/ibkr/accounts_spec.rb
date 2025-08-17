@@ -21,7 +21,7 @@ RSpec.describe Ibkr::Accounts do
       # Given a client with an account ID set
       # When creating an Accounts service
       service = described_class.new(client)
-      
+
       # Then it should store the client reference and account ID
       expect(service.instance_variable_get(:@_client)).to be(client)
       expect(service.account_id).to eq("DU123456")
@@ -31,7 +31,7 @@ RSpec.describe Ibkr::Accounts do
       # Given an accounts service
       # When creating a service from a client with account ID
       service = described_class.new(client)
-      
+
       # Then the service should reflect the client's account ID
       expect(service.account_id).to eq("DU123456")
       expect(service.account_id).to eq(client.account_id)
@@ -60,7 +60,7 @@ RSpec.describe Ibkr::Accounts do
       # Given an authenticated client with account ID
       # When requesting account metadata
       result = accounts_service.get
-      
+
       # Then it should return account information
       expect(result).to eq(meta_response)
       expect(result["id"]).to eq("DU123456")
@@ -69,7 +69,7 @@ RSpec.describe Ibkr::Accounts do
 
     it "uses correct API endpoint with account ID" do
       accounts_service.get
-      
+
       expect(oauth_client).to have_received(:get).with("/v1/api/portfolio/DU123456/meta")
     end
   end
@@ -77,17 +77,17 @@ RSpec.describe Ibkr::Accounts do
   describe "#summary" do
     let(:raw_summary_response) do
       {
-        "netliquidation" => { "amount" => 50000.00, "currency" => "USD", "timestamp" => 1692000000000 },
-        "availablefunds" => { "amount" => 25000.00, "currency" => "USD", "timestamp" => 1692000000000 },
-        "buyingpower" => { "amount" => 100000.00, "currency" => "USD", "timestamp" => 1692000000000 },
-        "accruedcash" => { "amount" => 45.67, "currency" => "USD", "timestamp" => 1692000000000 },
-        "cushion" => { "value" => 0.85 },
-        "equitywithloanvalue" => { "amount" => 50000.00, "currency" => "USD", "timestamp" => 1692000000000 },
-        "excessliquidity" => { "amount" => 30000.00, "currency" => "USD", "timestamp" => 1692000000000 },
-        "grosspositionvalue" => { "amount" => 75000.00, "currency" => "USD", "timestamp" => 1692000000000 },
-        "initmarginreq" => { "amount" => 15000.00, "currency" => "USD", "timestamp" => 1692000000000 },
-        "maintmarginreq" => { "amount" => 12000.00, "currency" => "USD", "timestamp" => 1692000000000 },
-        "totalcashvalue" => { "amount" => 25000.00, "currency" => "USD", "timestamp" => 1692000000000 }
+        "netliquidation" => {"amount" => 50000.00, "currency" => "USD", "timestamp" => 1692000000000},
+        "availablefunds" => {"amount" => 25000.00, "currency" => "USD", "timestamp" => 1692000000000},
+        "buyingpower" => {"amount" => 100000.00, "currency" => "USD", "timestamp" => 1692000000000},
+        "accruedcash" => {"amount" => 45.67, "currency" => "USD", "timestamp" => 1692000000000},
+        "cushion" => {"value" => 0.85},
+        "equitywithloanvalue" => {"amount" => 50000.00, "currency" => "USD", "timestamp" => 1692000000000},
+        "excessliquidity" => {"amount" => 30000.00, "currency" => "USD", "timestamp" => 1692000000000},
+        "grosspositionvalue" => {"amount" => 75000.00, "currency" => "USD", "timestamp" => 1692000000000},
+        "initmarginreq" => {"amount" => 15000.00, "currency" => "USD", "timestamp" => 1692000000000},
+        "maintmarginreq" => {"amount" => 12000.00, "currency" => "USD", "timestamp" => 1692000000000},
+        "totalcashvalue" => {"amount" => 25000.00, "currency" => "USD", "timestamp" => 1692000000000}
       }
     end
 
@@ -101,7 +101,7 @@ RSpec.describe Ibkr::Accounts do
       # Given an authenticated client
       # When requesting portfolio summary
       summary = accounts_service.summary
-      
+
       # Then it should return a structured Summary object
       expect(summary).to be_instance_of(Ibkr::Accounts::Summary)
       expect(summary.account_id).to eq("DU123456")
@@ -111,7 +111,7 @@ RSpec.describe Ibkr::Accounts do
 
     it "transforms IBKR API keys to normalized attribute names" do
       summary = accounts_service.summary
-      
+
       # Verify key transformation worked correctly
       expect(summary.net_liquidation_value).to be_instance_of(Ibkr::Accounts::AccountValue)
       expect(summary.available_funds).to be_instance_of(Ibkr::Accounts::AccountValue)
@@ -120,20 +120,20 @@ RSpec.describe Ibkr::Accounts do
 
     it "converts timestamps from milliseconds to Time objects" do
       summary = accounts_service.summary
-      
+
       expect(summary.net_liquidation_value.timestamp).to be_instance_of(Time)
       expect(summary.net_liquidation_value.timestamp.to_i).to eq(1692000000)
     end
 
     it "includes account ID in the summary data" do
       summary = accounts_service.summary
-      
+
       expect(summary.account_id).to eq("DU123456")
     end
 
     include_examples "a successful API request" do
-      subject { { "result" => raw_summary_response } }
-      let(:response_body) { { "result" => raw_summary_response }.to_json }
+      subject { {"result" => raw_summary_response} }
+      let(:response_body) { {"result" => raw_summary_response}.to_json }
     end
   end
 
@@ -185,12 +185,12 @@ RSpec.describe Ibkr::Accounts do
       # Given an authenticated client
       # When requesting positions without parameters
       positions = accounts_service.positions
-      
+
       # Then it should return positions data with default parameters
       expect(positions).to have_key("results")
       expect(positions["results"]).to be_an(Array)
       expect(positions["results"].size).to eq(2)
-      
+
       # Verify default parameters were used
       expect(oauth_client).to have_received(:get).with(
         "/v1/api/portfolio2/DU123456/positions",
@@ -206,7 +206,7 @@ RSpec.describe Ibkr::Accounts do
       # Given specific pagination and sorting requirements
       # When requesting positions with custom parameters
       accounts_service.positions(page: 2, sort: "market_value", direction: "desc")
-      
+
       # Then it should use the specified parameters
       expect(oauth_client).to have_received(:get).with(
         "/v1/api/portfolio2/DU123456/positions",
@@ -220,7 +220,7 @@ RSpec.describe Ibkr::Accounts do
 
     it "returns position data suitable for further processing" do
       positions = accounts_service.positions
-      
+
       first_position = positions["results"].first
       expect(first_position).to include(
         "conid" => "265598",
@@ -231,8 +231,8 @@ RSpec.describe Ibkr::Accounts do
     end
 
     include_examples "a successful API request" do
-      subject { { "result" => positions_response } }
-      let(:response_body) { { "result" => positions_response }.to_json }
+      subject { {"result" => positions_response} }
+      let(:response_body) { {"result" => positions_response}.to_json }
     end
   end
 
@@ -274,7 +274,7 @@ RSpec.describe Ibkr::Accounts do
       # Given a contract ID and time period
       # When requesting transaction history
       transactions = accounts_service.transactions(contract_id, days)
-      
+
       # Then it should return transaction data
       expect(transactions).to be_an(Array)
       expect(transactions.size).to eq(2)
@@ -284,7 +284,7 @@ RSpec.describe Ibkr::Accounts do
 
     it "uses correct request body structure" do
       accounts_service.transactions(contract_id, days)
-      
+
       expect(oauth_client).to have_received(:post).with(
         "/v1/api/pa/transactions",
         body: {
@@ -298,7 +298,7 @@ RSpec.describe Ibkr::Accounts do
 
     it "uses default 90-day period when not specified" do
       accounts_service.transactions(contract_id)
-      
+
       expect(oauth_client).to have_received(:post).with(
         "/v1/api/pa/transactions",
         body: hash_including("days" => 90)
@@ -309,7 +309,7 @@ RSpec.describe Ibkr::Accounts do
       # The current implementation only handles single contract
       # This test documents the expected behavior for the body structure
       accounts_service.transactions(contract_id, days)
-      
+
       expect(oauth_client).to have_received(:post).with(
         "/v1/api/pa/transactions",
         body: hash_including("conids" => [contract_id])
@@ -317,8 +317,8 @@ RSpec.describe Ibkr::Accounts do
     end
 
     include_examples "a successful API request" do
-      subject { { "result" => transactions_response } }
-      let(:response_body) { { "result" => transactions_response }.to_json }
+      subject { {"result" => transactions_response} }
+      let(:response_body) { {"result" => transactions_response}.to_json }
     end
   end
 
@@ -326,15 +326,15 @@ RSpec.describe Ibkr::Accounts do
     describe "#normalize_summary" do
       let(:raw_data) do
         {
-          "netliquidation" => { "amount" => 50000.00, "timestamp" => 1692000000000 },
-          "availablefunds" => { "amount" => 25000.00, "timestamp" => 1692000000000 },
-          "unknown_field" => { "amount" => 100.00 }
+          "netliquidation" => {"amount" => 50000.00, "timestamp" => 1692000000000},
+          "availablefunds" => {"amount" => 25000.00, "timestamp" => 1692000000000},
+          "unknown_field" => {"amount" => 100.00}
         }
       end
 
       it "transforms known keys using KEY_MAPPING" do
         normalized = accounts_service.send(:normalize_summary, raw_data)
-        
+
         expect(normalized).to have_key("net_liquidation_value")
         expect(normalized).to have_key("available_funds")
         expect(normalized).not_to have_key("netliquidation")
@@ -343,35 +343,35 @@ RSpec.describe Ibkr::Accounts do
 
       it "preserves unknown fields unchanged" do
         normalized = accounts_service.send(:normalize_summary, raw_data)
-        
+
         expect(normalized).to have_key("unknown_field")
-        expect(normalized["unknown_field"]).to eq({ "amount" => 100.00 })
+        expect(normalized["unknown_field"]).to eq({"amount" => 100.00})
       end
 
       it "converts timestamps from milliseconds to Time objects" do
         normalized = accounts_service.send(:normalize_summary, raw_data)
-        
+
         expect(normalized["net_liquidation_value"]["timestamp"]).to be_instance_of(Time)
         expect(normalized["net_liquidation_value"]["timestamp"].to_i).to eq(1692000000)
       end
 
       it "handles missing timestamp fields gracefully" do
         data_without_timestamp = {
-          "netliquidation" => { "amount" => 50000.00 }
+          "netliquidation" => {"amount" => 50000.00}
         }
-        
+
         normalized = accounts_service.send(:normalize_summary, data_without_timestamp)
-        
-        expect(normalized["net_liquidation_value"]).to eq({ "amount" => 50000.00 })
+
+        expect(normalized["net_liquidation_value"]).to eq({"amount" => 50000.00})
       end
 
       it "handles non-hash values in timestamp conversion" do
         data_with_non_hash = {
           "netliquidation" => "not_a_hash"
         }
-        
+
         normalized = accounts_service.send(:normalize_summary, data_with_non_hash)
-        
+
         expect(normalized["net_liquidation_value"]).to eq("not_a_hash")
       end
     end

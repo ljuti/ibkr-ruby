@@ -17,7 +17,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
 
         # When they initiate authentication
         expect(client.oauth_client).to receive(:authenticate).and_return(true)
-        
+
         # Then they should be successfully authenticated
         result = client.authenticate
         expect(result).to be true
@@ -27,7 +27,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         # Given a user attempts to authenticate
         # When the authentication process fails due to invalid credentials
         expect(client.oauth_client).to receive(:authenticate).and_return(false)
-        
+
         # Then they should receive a clear indication of failure
         result = client.authenticate
         expect(result).to be false
@@ -40,10 +40,10 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
       it "requires additional security validations for live trading" do
         # Given a user wants to access live trading
         expect(live_client.instance_variable_get(:@live)).to be true
-        
+
         # When they authenticate with live credentials
         expect(live_client.oauth_client).to receive(:authenticate).and_return(true)
-        
+
         # Then the system should apply enhanced security measures
         result = live_client.authenticate
         expect(result).to be true
@@ -61,8 +61,8 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
     it "can initialize a brokerage session for trading" do
       # Given an authenticated user
       # When they initialize a trading session
-      expect(client.oauth_client).to receive(:initialize_session).with(priority: false).and_return({ "connected" => true })
-      
+      expect(client.oauth_client).to receive(:initialize_session).with(priority: false).and_return({"connected" => true})
+
       # Then they should have an active trading session
       result = client.initialize_session
       expect(result).to include("connected" => true)
@@ -72,7 +72,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
       # Given an authenticated user with an active session
       # When they choose to logout
       expect(client.oauth_client).to receive(:logout).and_return(true)
-      
+
       # Then their session should be securely terminated
       result = client.logout
       expect(result).to be true
@@ -81,8 +81,8 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
     it "can request priority session for urgent trading" do
       # Given an authenticated user needing priority access
       # When they request priority session initialization
-      expect(client.oauth_client).to receive(:initialize_session).with(priority: true).and_return({ "priority" => true })
-      
+      expect(client.oauth_client).to receive(:initialize_session).with(priority: true).and_return({"priority" => true})
+
       # Then they should receive priority trading access
       result = client.initialize_session(priority: true)
       expect(result).to include("priority" => true)
@@ -95,11 +95,11 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
       # When they create clients with different default accounts
       client1 = Ibkr::Client.new(default_account_id: "DU123456", live: false)
       client2 = Ibkr::Client.new(default_account_id: "DU789012", live: false)
-      
+
       # Then each client should have their respective default account configured
       expect(client1.instance_variable_get(:@default_account_id)).to eq("DU123456")
       expect(client2.instance_variable_get(:@default_account_id)).to eq("DU789012")
-      
+
       # And after authentication, active accounts should be set to defaults
       # Mock the OAuth clients and authentication process
       oauth1 = double("oauth_client1", authenticate: true, authenticated?: true)
@@ -108,10 +108,10 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
       allow(client2).to receive(:oauth_client).and_return(oauth2)
       allow(client1).to receive(:fetch_available_accounts).and_return(["DU123456"])
       allow(client2).to receive(:fetch_available_accounts).and_return(["DU789012"])
-      
+
       client1.authenticate
       client2.authenticate
-      
+
       expect(client1.account_id).to eq("DU123456")
       expect(client2.account_id).to eq("DU789012")
     end
@@ -122,10 +122,10 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
       allow(client).to receive(:oauth_client).and_return(oauth_client)
       allow(client).to receive(:fetch_available_accounts).and_return(["DU123456"])
       client.authenticate
-      
+
       # When they access account services
       accounts_service = client.accounts
-      
+
       # Then they should have access to portfolio and trading operations for their account
       expect(accounts_service).to be_instance_of(Ibkr::Accounts)
       expect(accounts_service.account_id).to eq("DU123456")

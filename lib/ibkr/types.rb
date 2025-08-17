@@ -8,7 +8,7 @@ module Ibkr
 
     # Custom types for IBKR data
     IbkrNumber = Types::Coercible::Float | Types::Coercible::Integer
-    
+
     # Position size type that preserves integers when possible
     PositionSize = Types.Constructor(Numeric) do |value|
       case value
@@ -23,14 +23,14 @@ module Ibkr
           raise ArgumentError, "Cannot convert string '#{value}' to position size"
         end
       when Numeric
-        value.to_s.include?('.') ? value.to_f : value.to_i
+        value.to_s.include?(".") ? value.to_f : value.to_i
       else
         raise ArgumentError, "Cannot convert #{value.class} to position size"
       end
     end
-    
+
     StringOrNil = Types::String | Types::Nil
-    
+
     # Time types
     UnixTimestamp = Types::Integer.constructor { |value|
       case value
@@ -44,7 +44,7 @@ module Ibkr
         raise ArgumentError, "Cannot convert #{value.class} to unix timestamp"
       end
     }
-    
+
     # Coerce unix timestamps to Time objects
     TimeFromUnix = Types.Constructor(Time) do |value|
       case value
@@ -53,7 +53,7 @@ module Ibkr
       when Integer, String
         # IBKR often sends timestamps in milliseconds
         timestamp = value.to_i
-        timestamp = timestamp / 1000 if timestamp > 4_000_000_000 # Likely milliseconds
+        timestamp /= 1000 if timestamp > 4_000_000_000 # Likely milliseconds
         ::Time.at(timestamp)
       else
         raise ArgumentError, "Cannot convert #{value.class} to Time"
@@ -62,7 +62,7 @@ module Ibkr
 
     # Environment types
     Environment = Types::String.enum("sandbox", "production")
-    
+
     # Currency codes
     Currency = Types::String.constrained(format: /\A[A-Z]{3}\z/)
   end

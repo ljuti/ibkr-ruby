@@ -50,8 +50,8 @@ module Ibkr
       end
 
       def fee?
-        transaction_type&.upcase&.include?("FEE") || 
-        transaction_type&.upcase&.include?("COMMISSION")
+        transaction_type&.upcase&.include?("FEE") ||
+          transaction_type&.upcase&.include?("COMMISSION")
       end
 
       def interest?
@@ -61,7 +61,7 @@ module Ibkr
       # Value calculations
       def gross_value
         return amount if price.nil? || quantity.nil?
-        
+
         price * quantity.abs
       end
 
@@ -109,7 +109,7 @@ module Ibkr
       # Check if transaction is recent
       def recent?(days = 30)
         return false unless transaction_date
-        
+
         transaction_date >= Date.today - days
       end
 

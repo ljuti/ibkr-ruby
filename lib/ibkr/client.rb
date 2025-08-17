@@ -49,10 +49,10 @@ module Ibkr
       @available_accounts = []
       @config = config || Ibkr.configuration.dup
       @live = live
-      
+
       # Set environment based on live parameter for backward compatibility
       @config.environment = live ? "production" : "sandbox"
-      
+
       @oauth_client = nil
       @services = {}
     end
@@ -74,20 +74,20 @@ module Ibkr
     def authenticate
       # 1. Perform OAuth authentication
       result = oauth_client.authenticate
-      
+
       if result
         # 2. Fetch available accounts after successful authentication
         @available_accounts = fetch_available_accounts
-        
+
         # 3. Set active account (default or first available)
         @active_account_id = @default_account_id || @available_accounts.first
-        
+
         # Validate the active account is actually available
         if @active_account_id && !@available_accounts.include?(@active_account_id)
           @active_account_id = @available_accounts.first
         end
       end
-      
+
       result
     end
 
@@ -125,14 +125,14 @@ module Ibkr
     def set_active_account(account_id)
       ensure_authenticated!
       unless @available_accounts.include?(account_id)
-        raise ArgumentError, "Account #{account_id} not available. Available accounts: #{@available_accounts.join(', ')}"
+        raise ArgumentError, "Account #{account_id} not available. Available accounts: #{@available_accounts.join(", ")}"
       end
       @active_account_id = account_id
-      
+
       # Clear cached services so they pick up the new account
       @services.clear
     end
-    
+
     # Get the currently active account ID.
     #
     # @return [String, nil] The active account ID, or nil if not authenticated
@@ -143,7 +143,7 @@ module Ibkr
     def account_id
       @active_account_id
     end
-    
+
     # Legacy method for setting account ID (deprecated).
     #
     # @deprecated Use {#set_active_account} instead
@@ -157,7 +157,7 @@ module Ibkr
     def accounts
       @services[:accounts] ||= Accounts.new(self)
     end
-    
+
     # Public accessor for oauth_client (for testing)
     def oauth_client
       @oauth_client ||= Oauth.new(config: @config, live: @live)
@@ -206,7 +206,7 @@ module Ibkr
         # response["accounts"].map { |acc| acc["id"] }
         ["DU123456"]  # Default sandbox account
       end
-    rescue StandardError
+    rescue
       # If fetching accounts fails, return default account or empty array
       @default_account_id ? [@default_account_id] : []
     end
@@ -216,6 +216,5 @@ module Ibkr
         raise StandardError, "Not authenticated. Call authenticate first."
       end
     end
-
   end
 end

@@ -53,12 +53,7 @@ RSpec.configure do |config|
                 consumer_key: "test_consumer_key",
                 access_token: "test_access_token",
                 access_token_secret: Base64.encode64("test_secret"),
-                base_url: "https://api.ibkr.com"
-              )
-            )
-          )
-        )
-      )
+                base_url: "https://api.ibkr.com")))))
     end
 
     # Stub ActiveSupport::SecurityUtils if not available
@@ -76,7 +71,7 @@ RSpec.configure do |config|
     start_time = Time.now
     example.run
     end_time = Time.now
-    
+
     if (end_time - start_time) > 1.0  # Warn if test takes longer than 1 second
       puts "⚠️  Slow test: #{example.metadata[:full_description]} (#{(end_time - start_time).round(2)}s)"
     end

@@ -17,17 +17,17 @@ module Ibkr
       def generate_rsa_signature(params)
         params_for_signature = params.reject { |k, _| k == "oauth_signature" || k == "realm" }
         base_string = encoded_base_string(params_for_signature)
-        
-        raw_signature = @config.signature_key.sign(OpenSSL::Digest::SHA256.new, base_string)
+
+        raw_signature = @config.signature_key.sign(OpenSSL::Digest.new("SHA256"), base_string)
         Base64.strict_encode64(raw_signature)
       end
 
       # Generate HMAC-SHA256 signature for API requests
-      def generate_hmac_signature(method:, url:, params:, query: {}, body: {}, live_session_token:)
+      def generate_hmac_signature(method:, url:, params:, live_session_token:, query: {}, body: {})
         base_string = canonical_base_string(method, url, params, query, body)
         raw_key = Base64.decode64(live_session_token)
         raw_signature = OpenSSL::HMAC.digest("sha256", raw_key, base_string.encode("utf-8"))
-        
+
         signature = Base64.strict_encode64(raw_signature)
         URI.encode_www_form_component(signature)
       end
@@ -46,10 +46,10 @@ module Ibkr
       # Generate Diffie-Hellman challenge
       def generate_dh_challenge
         @dh_random = SecureRandom.random_number(2**256)
-        
+
         dh_prime = @config.dh_params.p
         dh_generator = @config.dh_params.g
-        
+
         dh_generator.mod_exp(@dh_random, dh_prime).to_s(16)
       end
 
@@ -113,7 +113,7 @@ module Ibkr
           key = prefix ? "#{prefix}[#{k}]" : k.to_s
           case v
           when Array
-            v.flat_map { |item| flatten_params({ key => item }) }
+            v.flat_map { |item| flatten_params({key => item}) }
           when Hash
             flatten_params(v, key)
           else
@@ -129,7 +129,7 @@ module Ibkr
           encrypted_secret,
           OpenSSL::PKey::RSA::PKCS1_PADDING
         )
-        
+
         decrypted_bytes.unpack1("H*")
       rescue OpenSSL::PKey::RSAError => e
         raise Ibkr::ConfigurationError, "Failed to decrypt access token secret: #{e.message}"

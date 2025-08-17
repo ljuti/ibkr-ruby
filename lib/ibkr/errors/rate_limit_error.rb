@@ -24,7 +24,7 @@ module Ibkr
     # Factory method to extract rate limit info from response headers
     def self.from_response(response, message: nil)
       headers = response.headers
-      
+
       retry_after = headers["Retry-After"]&.to_i
       limit = headers["X-RateLimit-Limit"]&.to_i
       remaining = headers["X-RateLimit-Remaining"]&.to_i
@@ -42,22 +42,24 @@ module Ibkr
       )
     end
 
-    private
+    class << self
+      private
 
-    def self.build_rate_limit_message(retry_after, remaining, reset_time)
-      message = "Rate limit exceeded"
-      
-      if retry_after
-        message += ". Retry after #{retry_after} seconds"
-      elsif reset_time
-        message += ". Rate limit resets at #{reset_time}"
+      def build_rate_limit_message(retry_after, remaining, reset_time)
+        message = "Rate limit exceeded"
+
+        if retry_after
+          message += ". Retry after #{retry_after} seconds"
+        elsif reset_time
+          message += ". Rate limit resets at #{reset_time}"
+        end
+
+        if remaining
+          message += ". #{remaining} requests remaining"
+        end
+
+        message
       end
-      
-      if remaining
-        message += ". #{remaining} requests remaining"
-      end
-      
-      message
     end
   end
 end

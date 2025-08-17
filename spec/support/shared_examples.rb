@@ -11,7 +11,7 @@ RSpec.shared_examples "a successful API request" do
     compressed_body = StringIO.new
     Zlib::GzipWriter.wrap(compressed_body) { |gz| gz.write(response_body) }
     allow(mock_response).to receive(:body).and_return(compressed_body.string)
-    
+
     expect(subject).to be_a(Hash)
   end
 end

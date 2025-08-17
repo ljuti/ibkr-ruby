@@ -3,37 +3,37 @@
 module Ibkr
   class AuthenticationError < BaseError
     def initialize(message = "Authentication failed", **options)
-      super(message, **options)
+      super
     end
 
     # Specific authentication error types
     class InvalidCredentials < AuthenticationError
       def initialize(message = "Invalid credentials provided")
-        super(message)
+        super
       end
     end
 
     class TokenExpired < AuthenticationError
       def initialize(message = "Access token has expired")
-        super(message)
+        super
       end
     end
 
     class TokenInvalid < AuthenticationError
       def initialize(message = "Access token is invalid")
-        super(message)
+        super
       end
     end
 
     class SignatureInvalid < AuthenticationError
       def initialize(message = "OAuth signature validation failed")
-        super(message)
+        super
       end
     end
 
     class SessionInitializationFailed < AuthenticationError
       def initialize(message = "Failed to initialize brokerage session")
-        super(message)
+        super
       end
     end
 
