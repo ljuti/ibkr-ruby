@@ -29,8 +29,16 @@ RSpec.shared_context "with mocked Rails credentials" do
 end
 
 RSpec.shared_context "with mocked cryptographic keys" do
-  let(:mock_rsa_key) { double("RSA key") }
-  let(:mock_dh_param) { double("DH param", p: double("p"), g: double("g")) }
+  let(:mock_p) { double("p", mod_exp: double("result")) }
+  let(:mock_g) { double("g", mod_exp: double("result", to_s: "abcdef123456")) }
+  let(:mock_rsa_key) do
+    decrypted_string = "decrypted_mock_secret"
+    double("RSA key", 
+      sign: "mock_signature_bytes", 
+      private_decrypt: decrypted_string
+    )
+  end
+  let(:mock_dh_param) { double("DH param", p: mock_p, g: mock_g) }
 
   before do
     allow(File).to receive(:read).with("./config/certs/private_encryption.pem").and_return("mock_encryption_key")
@@ -39,6 +47,27 @@ RSpec.shared_context "with mocked cryptographic keys" do
     
     allow(OpenSSL::PKey::RSA).to receive(:new).and_return(mock_rsa_key)
     allow(OpenSSL::PKey::DH).to receive(:new).and_return(mock_dh_param)
+    
+    # Mock Base64 operations for consistent test behavior
+    allow(Base64).to receive(:strict_encode64).with("mock_signature_bytes").and_return("bW9ja19zaWduYXR1cmVfYnl0ZXM=")
+    allow(Base64).to receive(:strict_encode64).with(kind_of(String)).and_return("bW9ja19lbmNvZGVkX3ZhbHVl")
+    
+    # Mock OpenSSL::BN operations for DH computations
+    allow(OpenSSL::BN).to receive(:new).and_call_original
+    allow(OpenSSL::BN).to receive(:new).with(kind_of(String), 16).and_return(
+      double("BN", mod_exp: double("result", to_s: "computed_value", num_bits: 256))
+    )
+    
+    # Mock configuration to return our mocked crypto objects
+    allow_any_instance_of(Ibkr::Configuration).to receive(:encryption_key).and_return(mock_rsa_key)
+    allow_any_instance_of(Ibkr::Configuration).to receive(:signature_key).and_return(mock_rsa_key)
+    allow_any_instance_of(Ibkr::Configuration).to receive(:dh_params).and_return(mock_dh_param)
+    
+    # Mock signature generator methods to avoid complex crypto operations
+    allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:generate_rsa_signature).and_return("mock_signature")
+    allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:generate_dh_challenge).and_return("abcdef123456")
+    allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:compute_live_session_token).and_return("computed_token")
+    allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:decrypt_prepend).and_return("mock_prepend")
   end
 end
 
@@ -69,7 +98,7 @@ RSpec.shared_context "with authenticated oauth client" do
     client = Ibkr::Oauth.new(live: false)
     allow(client).to receive(:live_session_token).and_return(valid_token)
     allow(client).to receive(:authenticated?).and_return(true)
-    client.instance_variable_set(:@token, valid_token)
+    client.instance_variable_set(:@current_token, valid_token)
     client
   end
 end

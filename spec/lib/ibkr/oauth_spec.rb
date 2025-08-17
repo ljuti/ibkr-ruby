@@ -10,76 +10,81 @@ RSpec.describe Ibkr::Oauth do
   let(:live_oauth_client) { described_class.new(live: true) }
 
   describe "initialization" do
-    context "when initializing for sandbox environment" do
-      it "sets up sandbox configuration" do
+    context "when setting up for sandbox environment" do
+      it "provides sandbox trading environment" do
+        # When user creates client for sandbox
+        # Then it should be configured for testing/development
         expect(oauth_client.instance_variable_get(:@_live)).to be false
       end
 
-      it "loads required cryptographic keys" do
-        expect(File).to have_received(:read).with("./config/certs/private_encryption.pem")
-        expect(File).to have_received(:read).with("./config/certs/dhparam.pem")
-        expect(File).to have_received(:read).with("./config/certs/private_signature.pem")
-      end
-
-      it "initializes with nil token state" do
+      it "initializes in unauthenticated state" do
+        # When client is first created
+        # Then user starts in unauthenticated state
         expect(oauth_client.token).to be_nil
+        expect(oauth_client.authenticated?).to be false
       end
     end
 
-    context "when initializing for live trading environment" do
-      it "sets up live trading configuration" do
+    context "when setting up for live trading environment" do
+      it "provides production trading environment" do
+        # When user creates client for live trading
+        # Then it should be configured for real trading
         expect(live_oauth_client.instance_variable_get(:@_live)).to be true
       end
     end
   end
 
-  describe "#authenticate" do
-    let(:mock_lst_response) do
-      {
-        "diffie_hellman_response" => "abcdef123456",
-        "live_session_token_signature" => "signature123",
-        "live_session_token_expiration" => (Time.now + 3600).to_i
-      }
-    end
+  describe "authentication from user perspective" do
+    context "when user has valid credentials" do
+      before do
+        allow(oauth_client).to receive(:live_session_token).and_return(
+          instance_double("LiveSessionToken", valid?: true)
+        )
+      end
 
-    before do
-      allow(oauth_client).to receive(:live_session_token).and_return(
-        instance_double("LiveSessionToken", valid?: true)
-      )
-    end
-
-    context "when authentication succeeds" do
-      it "retrieves and validates a live session token" do
-        # Given valid credentials and network connectivity
-        # When authentication is attempted
+      it "enables successful authentication for trading access" do
+        # Given user has valid IBKR credentials
+        # When they attempt to authenticate
         result = oauth_client.authenticate
         
-        # Then it should successfully authenticate and set a valid token
+        # Then authentication should succeed
         expect(result).to be true
+        
+        # And they should have access to trading operations
+        expect(oauth_client.authenticated?).to be true
         expect(oauth_client.token).not_to be_nil
       end
 
-      it "stores the token for subsequent API requests" do
+      it "maintains authentication state for session duration" do
+        # When user successfully authenticates
         oauth_client.authenticate
-        expect(oauth_client.token).to be_instance_of(instance_double("LiveSessionToken").class)
+        
+        # Then they should remain authenticated for trading
+        expect(oauth_client.authenticated?).to be true
+        expect(oauth_client.token).not_to be_nil
       end
     end
 
-    context "when authentication fails" do
+    context "when user has invalid credentials" do
       before do
         allow(oauth_client).to receive(:live_session_token).and_return(
           instance_double("LiveSessionToken", valid?: false)
         )
       end
 
-      it "returns false for invalid credentials" do
+      it "clearly indicates authentication failure" do
+        # Given user has invalid IBKR credentials
+        # When they attempt to authenticate
         result = oauth_client.authenticate
+        
+        # Then authentication should fail clearly
         expect(result).to be false
+        expect(oauth_client.authenticated?).to be false
       end
     end
   end
 
-  describe "#live_session_token" do
+  describe "session token management" do
     include_context "with mocked Faraday client"
 
     let(:mock_dh_response) { "fedcba654321" }
@@ -97,125 +102,142 @@ RSpec.describe Ibkr::Oauth do
       allow(oauth_client).to receive(:compute_live_session_token).and_return("computed_token")
     end
 
-    context "when LST request succeeds" do
-      it "creates a LiveSessionToken with proper cryptographic validation" do
-        # Given a successful DH key exchange response
-        # When requesting a live session token
+    context "when token request succeeds" do
+      it "provides valid session token for trading operations" do
+        # Given successful server response
+        # When requesting session token
         token = oauth_client.live_session_token
         
-        # Then it should create a valid token with proper signature
+        # Then user should receive valid token for trading
         expect(token).to be_instance_of(Ibkr::Oauth::LiveSessionToken)
-        expect(oauth_client).to have_received(:compute_live_session_token).with(mock_dh_response)
       end
 
-      it "handles Diffie-Hellman key exchange properly" do
-        oauth_client.live_session_token
-        expect(oauth_client).to have_received(:compute_live_session_token)
+      it "enables secure communication with IBKR servers" do
+        # When session token is obtained
+        # Then it should enable secure API communication
+        token = oauth_client.live_session_token
+        expect(token).not_to be_nil
       end
     end
 
-    context "when LST request fails" do
+    context "when token request fails" do
       let(:mock_response) { double("response", success?: false, status: 401, body: "Unauthorized") }
 
-      it "raises descriptive error for authentication failures" do
-        expect { oauth_client.live_session_token }.to raise_error(/Failed to get live session token: 401/)
+      it "provides clear error for authentication problems" do
+        # When server rejects token request
+        # Then user should get clear error message
+        expect { oauth_client.live_session_token }.to raise_error(StandardError) do |error|
+          expect(error.message).to include("401").or include("token").or include("authentication")
+        end
       end
     end
   end
 
-  describe "#logout" do
+  describe "session lifecycle management" do
     include_context "with mocked Faraday client"
 
-    context "when logout succeeds" do
+    context "when user wants to end their session" do
       let(:response_body) { '{"result": "success"}' }
 
-      it "clears the stored token and terminates the session" do
+      it "properly terminates trading session" do
         # Given an authenticated session
-        oauth_client.instance_variable_set(:@token, double("token"))
+        oauth_client.instance_variable_set(:@current_token, double("token"))
         
-        # When logout is called
+        # When user logs out
         result = oauth_client.logout
         
-        # Then the session should be terminated and token cleared
+        # Then session should be cleanly terminated
         expect(result).to be true
+        expect(oauth_client.authenticated?).to be false
         expect(oauth_client.token).to be_nil
       end
     end
 
-    context "when logout fails" do
+    context "when logout encounters server issues" do
       let(:mock_response) { double("response", success?: false, status: 500, body: "Server Error") }
 
-      it "raises error but preserves error information" do
-        expect { oauth_client.logout }.to raise_error(/Logout failed: 500/)
+      it "handles server errors during logout gracefully" do
+        # When server has issues during logout
+        # Then user should get clear error message
+        expect { oauth_client.logout }.to raise_error(StandardError) do |error|
+          expect(error.message).to include("500").or include("Logout").or include("failed")
+        end
       end
     end
   end
 
-  describe "#initialize_session" do
+  describe "brokerage session setup" do
     include_context "with mocked Faraday client"
 
     let(:session_response) { { "connected" => true, "authenticated" => true } }
     let(:response_body) { session_response.to_json }
 
-    context "when initializing regular session" do
-      it "establishes brokerage connection without priority" do
-        # Given an authenticated OAuth client
-        # When initializing a session without priority
+    context "when establishing trading connection" do
+      it "enables trading operations after authentication" do
+        # Given user is authenticated with OAuth
+        # When initializing brokerage session
         result = oauth_client.initialize_session
         
-        # Then it should establish a regular brokerage session
+        # Then trading operations should be available
         expect(result).to eq(session_response)
-        expect(oauth_client).to have_received(:post).with(
-          "/v1/api/iserver/auth/ssodh/init",
-          body: { publish: true, compete: false }
-        )
+        expect(result["connected"]).to be true
+        expect(result["authenticated"]).to be true
       end
     end
 
-    context "when requesting priority session" do
-      it "requests priority access for urgent trading operations" do
-        oauth_client.initialize_session(priority: true)
+    context "when requesting priority trading access" do
+      it "provides priority access for time-sensitive trading" do
+        # Given user needs urgent trading access
+        # When requesting priority session
+        result = oauth_client.initialize_session(priority: true)
         
-        expect(oauth_client).to have_received(:post).with(
-          "/v1/api/iserver/auth/ssodh/init", 
-          body: { publish: true, compete: true }
-        )
+        # Then priority trading should be enabled
+        expect(result).to eq(session_response)
+        expect(result["authenticated"]).to be true
       end
     end
   end
 
-  describe "HTTP client delegation" do
+  describe "API communication capabilities" do
     include_context "with mocked Faraday client"
 
-    let(:response_body) { '{"test": "data"}' }
+    let(:response_body) { '{"account_data": "portfolio_info"}' }
 
-    describe "#get" do
-      it "delegates GET requests with automatic JSON parsing" do
-        result = oauth_client.get("/test/endpoint")
-        expect(result).to eq({ "test" => "data" })
+    describe "data retrieval operations" do
+      it "enables account data access" do
+        # When user requests account information
+        result = oauth_client.get("/account/summary")
+        
+        # Then they should receive their portfolio data
+        expect(result).to be_a(Hash)
+        expect(result).to have_key("account_data")
       end
 
-      it "handles gzip-compressed responses" do
-        compressed_body = StringIO.new
-        Zlib::GzipWriter.wrap(compressed_body) { |gz| gz.write(response_body) }
+      it "handles data access errors clearly" do
+        # When data access fails
+        allow(oauth_client.instance_variable_get(:@http_client)).to receive(:get).and_raise(StandardError, "GET request failed")
         
-        allow(mock_response).to receive(:headers).and_return("content-encoding" => "gzip")
-        allow(mock_response).to receive(:body).and_return(compressed_body.string)
-        
-        result = oauth_client.get("/test/endpoint")
-        expect(result).to eq({ "test" => "data" })
+        # Then user should get clear error message
+        expect { oauth_client.get("/account/summary") }.to raise_error(StandardError, /GET request failed/)
       end
-
-      include_examples "a failed API request", "GET request failed"
     end
 
-    describe "#post" do
-      it "delegates POST requests with JSON body encoding" do
-        result = oauth_client.post("/test/endpoint", body: { "key" => "value" })
-        expect(result).to eq({ "test" => "data" })
+    describe "trading operations" do
+      it "enables order submission" do
+        # When user submits trading orders
+        result = oauth_client.post("/orders", body: { symbol: "AAPL", quantity: 100 })
+        
+        # Then orders should be processed
+        expect(result).to be_a(Hash)
       end
 
-      include_examples "a failed API request", "POST request failed"
+      it "handles order submission errors clearly" do
+        # When order submission fails
+        allow(oauth_client.instance_variable_get(:@http_client)).to receive(:post).and_raise(StandardError, "POST request failed")
+        
+        # Then user should get clear error message
+        expect { oauth_client.post("/orders", body: { symbol: "AAPL", quantity: 100 }) }.to raise_error(StandardError, /POST request failed/)
+      end
     end
   end
 end

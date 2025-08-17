@@ -15,3 +15,4 @@ config/ibkr.local.yml
 config/certs/*.pem
 config/certs/*.key
 *.local.yml
+.claude
