@@ -137,6 +137,12 @@ summary = client.accounts.summary
 2. **Token Management**: `Ibkr::Oauth::LiveSessionToken` handles token validation and expiry
 3. **HTTP Integration**: OAuth headers automatically added to authenticated requests
 
+### Account Discovery & Management
+1. **Session Initialization**: `initialize_session(priority: true)` establishes brokerage session
+2. **Account Discovery**: `fetch_available_accounts` calls `/iserver/accounts` API endpoint
+3. **Hybrid Approach**: Supports both single-account (with `default_account_id`) and multi-account workflows
+4. **Service Isolation**: Account switching clears service cache for proper isolation
+
 ### Data Type System
 - **Dry::Types** for type coercion and validation
 - **Custom Types**: `PositionSize` (preserves integers), `TimeFromUnix` (millisecond timestamps)

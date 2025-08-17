@@ -87,19 +87,92 @@ client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
 client.authenticate  # Active account is automatically set to DU123456
 
 # Multi-Account Workflow  
-# Don't specify default account to work with multiple accounts
+# Don't specify default account to discover all available accounts
 client = Ibkr::Client.new(live: false)
-client.authenticate  # Active account is set to first available account
 
-# See all available accounts
-puts "Available accounts: #{client.available_accounts}"
+# When you authenticate without a default account:
+# 1. The client calls IBKR's /iserver/accounts API to discover available accounts
+# 2. The first account in the response becomes the active account
+# 3. You can then switch between any discovered accounts
+client.authenticate  
 
-# Switch between accounts
+# See all accounts your credentials can access
+puts "Available accounts: #{client.available_accounts}"  # e.g., ["DU123456", "DU789012"]
+puts "Currently active: #{client.account_id}"            # e.g., "DU123456" (first account)
+
+# Switch between accounts as needed
 client.set_active_account("DU789012")
-puts "Now using account: #{client.account_id}"
+puts "Now using account: #{client.account_id}"  # "DU789012"
 
 # All subsequent API calls use the active account
 summary = client.accounts.summary  # Summary for DU789012
+
+# Switch back to another account
+client.set_active_account("DU123456")
+summary = client.accounts.summary  # Summary for DU123456
+```
+
+## Account Discovery & Management
+
+The IBKR gem uses a **hybrid approach** that accommodates both single-account and multi-account workflows. Your IBKR credentials may have access to multiple brokerage accounts, and the gem can automatically discover and manage them.
+
+### How Account Discovery Works
+
+When you authenticate without specifying a `default_account_id`, the client:
+
+1. **Establishes brokerage session** - Calls `/iserver/auth/ssodh/init` with priority access
+2. **Discovers available accounts** - Calls `/iserver/accounts` to get all accessible accounts  
+3. **Sets active account** - Uses the first account from the response as the active account
+4. **Enables account switching** - Allows you to switch between any discovered accounts
+
+```ruby
+# Account discovery in action
+client = Ibkr::Client.new(live: false)
+client.authenticate
+
+# Behind the scenes, this made these API calls:
+# 1. POST /iserver/auth/ssodh/init (session initialization)
+# 2. GET /iserver/accounts (account discovery)
+
+puts client.available_accounts   # ["DU123456", "DU789012", "DU555555"]
+puts client.active_account_id    # "DU123456" (first account)
+```
+
+### Account Management Methods
+
+```ruby
+# Check what accounts are available
+client.available_accounts        # Array of account IDs
+client.active_account_id         # Currently active account ID  
+client.account_id               # Alias for active_account_id
+
+# Switch active account (must be in available_accounts)
+client.set_active_account("DU789012")
+
+# Verify the switch
+puts client.account_id          # "DU789012"
+```
+
+### When to Use Each Approach
+
+**Single Account (Recommended for most users):**
+```ruby
+# If you know your account ID and only work with one account
+client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
+client.authenticate
+# ✅ Faster - skips account discovery API call
+# ✅ Explicit - you know exactly which account is active
+# ✅ Safer - prevents accidental account switching
+```
+
+**Multi-Account (For advanced users):**
+```ruby
+# If you have multiple accounts or don't know your account ID
+client = Ibkr::Client.new(live: false)
+client.authenticate
+# ✅ Automatic discovery - finds all accessible accounts
+# ✅ Flexible - can switch between accounts easily
+# ✅ Future-proof - handles account additions automatically
 ```
 
 ### Account Information

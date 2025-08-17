@@ -52,13 +52,18 @@ puts config.environment  # => :sandbox
 
 ### Ibkr::Client.new
 
-Creates a new IBKR client instance.
+Creates a new IBKR client instance with optional account specification.
 
 ```ruby
-client = Ibkr::Client.new(live: false, config: nil)
+# Single account workflow (recommended)
+client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
+
+# Multi-account workflow (automatic discovery)
+client = Ibkr::Client.new(live: false)
 ```
 
 **Parameters:**
+- `default_account_id` (String, optional): Account ID to use as default. If not provided, account discovery is performed during authentication.
 - `live` (Boolean, optional): `true` for production, `false` for sandbox. Defaults to configuration setting.
 - `config` (Ibkr::Configuration, optional): Custom configuration. Defaults to global configuration.
 
@@ -66,40 +71,79 @@ client = Ibkr::Client.new(live: false, config: nil)
 
 ### #authenticate
 
-Authenticate with Interactive Brokers using OAuth 1.0a.
+Authenticate with Interactive Brokers using OAuth 1.0a and set up account access.
 
 ```ruby
 client.authenticate
 ```
 
+**What happens during authentication:**
+1. OAuth 1.0a authentication with IBKR
+2. Brokerage session initialization (`/iserver/auth/ssodh/init`)
+3. Account discovery (if no `default_account_id` provided) via `/iserver/accounts`
+4. Active account setup
+
 **Returns:** `Boolean` - `true` if authentication successful
 
 **Raises:**
-- `Ibkr::AuthenticationError` - Invalid credentials or authentication failure
+- `Ibkr::AuthenticationError` - Invalid credentials, authentication failure, or account setup issues
 - `Ibkr::ApiError` - Network or API errors
 
-### #set_account_id
+### #available_accounts
 
-Set the account ID for subsequent account operations.
+Get all accounts accessible with the current credentials.
 
 ```ruby
-client.set_account_id("DU123456")
+accounts = client.available_accounts  # => ["DU123456", "DU789012"]
 ```
 
-**Parameters:**
-- `account_id` (String): IBKR account identifier
+**Returns:** `Array<String>` - Array of account IDs
+**Note:** Only available after successful authentication
 
-**Returns:** `String` - The set account ID
+### #active_account_id
+
+Get the currently active account ID.
+
+```ruby
+active_id = client.active_account_id  # => "DU123456"
+```
+
+**Returns:** `String` or `nil`
 
 ### #account_id
 
-Get the currently set account ID.
+Alias for `#active_account_id` (legacy compatibility).
 
 ```ruby
 account_id = client.account_id  # => "DU123456"
 ```
 
 **Returns:** `String` or `nil`
+
+### #set_active_account
+
+Switch the active account to one of the available accounts.
+
+```ruby
+client.set_active_account("DU789012")
+```
+
+**Parameters:**
+- `account_id` (String): Account ID from `available_accounts`
+
+**Returns:** `String` - The new active account ID
+
+**Raises:**
+- `ArgumentError` - If account ID is not in `available_accounts`
+- `StandardError` - If not authenticated
+
+### #set_account_id
+
+**DEPRECATED:** Legacy method for setting account ID. Use `default_account_id` in constructor or `set_active_account` instead.
+
+```ruby
+client.set_account_id("DU123456")  # Deprecated - use set_active_account
+```
 
 ### #accounts
 

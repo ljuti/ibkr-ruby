@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Multi-Account Support** - Hybrid approach supporting both single and multi-account workflows
-  - `default_account_id` parameter for client initialization
-  - Automatic account setup during authentication
+  - `default_account_id` parameter for client initialization (optional)
+  - **Automatic Account Discovery** - Real IBKR API integration via `/iserver/accounts` endpoint
+  - Brokerage session initialization with priority access (`/iserver/auth/ssodh/init`)
   - `set_active_account()` method for switching between accounts
   - `available_accounts` property for listing accessible accounts
   - Backwards compatibility with legacy `account_id` methods
