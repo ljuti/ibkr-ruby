@@ -19,7 +19,7 @@ module Ibkr
       # Authenticate and get live session token
       def authenticate
         @current_token = request_live_session_token
-        @current_token.valid?(config.consumer_key)
+        current_token.valid?(config.consumer_key)
       end
 
       # Check if currently authenticated with valid token
@@ -30,7 +30,7 @@ module Ibkr
       # Get current token, refreshing if necessary
       def token
         refresh_token_if_needed
-        @current_token
+        current_token
       end
 
       # Alias for compatibility
