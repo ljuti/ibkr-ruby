@@ -206,16 +206,15 @@ module Ibkr
 
       # Fetch available accounts from IBKR API
       response = @oauth_client.get("/v1/api/iserver/accounts")
-      
+
       # Extract account IDs from the response
-      accounts = response["accounts"] || []
-      
+      response["accounts"] || []
+
       # Return account IDs array
-      accounts
     rescue Ibkr::BaseError
       # Re-raise IBKR-specific errors (they have useful context)
       raise
-    rescue StandardError => e
+    rescue => e
       # If fetching accounts fails for other reasons, fall back gracefully
       # In production, this would be logged as a warning
       if @default_account_id

@@ -174,7 +174,7 @@ RSpec.shared_context "with mocked IBKR API" do
       "isFT" => false,
       "isPaper" => true
     }
-    
+
     stub_request(:get, "#{base_url}/v1/api/iserver/accounts")
       .to_return(
         status: 200,

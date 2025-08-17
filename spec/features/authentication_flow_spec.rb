@@ -115,18 +115,16 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
 
       # And after authentication, active accounts should be set to defaults
       # Mock the OAuth clients and authentication process
-      oauth1 = double("oauth_client1", 
-        authenticate: true, 
+      oauth1 = double("oauth_client1",
+        authenticate: true,
         authenticated?: true,
         initialize_session: true,
-        get: {"accounts" => ["DU123456"]}
-      )
-      oauth2 = double("oauth_client2", 
-        authenticate: true, 
+        get: {"accounts" => ["DU123456"]})
+      oauth2 = double("oauth_client2",
+        authenticate: true,
         authenticated?: true,
         initialize_session: true,
-        get: {"accounts" => ["DU789012"]}
-      )
+        get: {"accounts" => ["DU789012"]})
       client1.instance_variable_set(:@oauth_client, oauth1)
       client2.instance_variable_set(:@oauth_client, oauth2)
 
@@ -139,12 +137,11 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
 
     it "provides access to account-specific services after authentication" do
       # Given a user has created a client for a specific account and authenticated
-      oauth_client = double("oauth_client", 
-        authenticate: true, 
+      oauth_client = double("oauth_client",
+        authenticate: true,
         authenticated?: true,
         initialize_session: true,
-        get: {"accounts" => ["DU123456"]}
-      )
+        get: {"accounts" => ["DU123456"]})
       client.instance_variable_set(:@oauth_client, oauth_client)
       client.authenticate
 

@@ -13,7 +13,7 @@ RSpec.describe "Fetch Available Accounts Integration", type: :unit do
     it "fetches accounts from IBKR API after session initialization" do
       # Given an authenticated client
       client.authenticate
-      
+
       # When fetch_available_accounts is called (internally)
       # It should make the correct API calls
       expect(client.available_accounts).to eq(["DU123456"])
@@ -23,7 +23,7 @@ RSpec.describe "Fetch Available Accounts Integration", type: :unit do
     it "handles accounts endpoint response properly" do
       # Given an authenticated client
       client.authenticate
-      
+
       # When we check the response structure
       # The accounts should be extracted from the complex IBKR response
       expect(client.available_accounts).to be_an(Array)
@@ -42,7 +42,7 @@ RSpec.describe "Fetch Available Accounts Integration", type: :unit do
           },
           "selectedAccount" => "DU123456"
         }
-        
+
         stub_request(:get, "#{base_url}/v1/api/iserver/accounts")
           .to_return(
             status: 200,
@@ -53,7 +53,7 @@ RSpec.describe "Fetch Available Accounts Integration", type: :unit do
 
       it "extracts all available account IDs" do
         client.authenticate
-        
+
         expect(client.available_accounts).to eq(["DU123456", "DU789012"])
         expect(client.active_account_id).to eq("DU123456")  # First account becomes active
       end
@@ -63,7 +63,7 @@ RSpec.describe "Fetch Available Accounts Integration", type: :unit do
       it "calls initialize_session before fetching accounts" do
         oauth_client = client.oauth_client
         expect(oauth_client).to receive(:initialize_session).with(priority: true).once
-        
+
         client.authenticate
       end
     end
@@ -73,7 +73,7 @@ RSpec.describe "Fetch Available Accounts Integration", type: :unit do
         unauthenticated_client = Ibkr::Client.new(live: false)
         oauth_client = double("oauth_client", authenticated?: false)
         unauthenticated_client.instance_variable_set(:@oauth_client, oauth_client)
-        
+
         expect {
           unauthenticated_client.send(:fetch_available_accounts)
         }.to raise_error(Ibkr::AuthenticationError, /Client must be authenticated/)
