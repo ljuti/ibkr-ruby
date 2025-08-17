@@ -1,7 +1,7 @@
 # IBKR Ruby Gem
 
 [![Gem Version](https://badge.fury.io/rb/ibkr.svg)](https://badge.fury.io/rb/ibkr)
-[![Ruby](https://github.com/ljuti/ibkr/workflows/Ruby/badge.svg)](https://github.com/ljuti/ibkr/actions)
+[![Ruby](https://github.com/ljuti/ibkr-ruby/workflows/Ruby/badge.svg)](https://github.com/ljuti/ibkr-ruby/actions)
 
 A modern Ruby gem for accessing Interactive Brokers' Web API. Provides real-time access to portfolio data, account information, and trading functionality with robust error handling and type safety.
 
@@ -532,7 +532,7 @@ The gem is available as open source under the terms of the [MIT License](https:/
 ## Support
 
 - **Documentation**: See `docs/` directory for detailed API documentation
-- **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/ljuti/ibkr/issues)
+- **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/ljuti/ibkr-ruby/issues)
 - **IBKR API Documentation**: [Interactive Brokers Web API](https://www.interactivebrokers.com/campus/ibkr-api-page/cpapi-v1/)
 
 ## Disclaimer
