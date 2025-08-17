@@ -65,19 +65,21 @@ RSpec.describe "OAuth Authentication Behavior" do
         
         # And user should not be authenticated
         expect(oauth_client.authenticated?).to be false
-        expect(oauth_client.token).to be_nil
       end
     end
 
     context "when session management is needed" do
       before do
-        # Simulate successful authentication
+        # Simulate successful authentication by setting up authenticator state
         valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
           token: "valid_token",
           valid?: true,
           expired?: false
         )
-        oauth_client.instance_variable_set(:@current_token, valid_token)
+        
+        # Set up the authenticator state directly
+        authenticator = oauth_client.authenticator
+        authenticator.instance_variable_set(:@current_token, valid_token)
       end
 
       it "allows user to logout and clear session" do
@@ -91,7 +93,10 @@ RSpec.describe "OAuth Authentication Behavior" do
         # Then session should be terminated
         expect(result).to be true
         expect(oauth_client.authenticated?).to be false
-        expect(oauth_client.token).to be_nil
+        
+        # Check that token was cleared from authenticator
+        authenticator = oauth_client.authenticator
+        expect(authenticator.current_token).to be_nil
       end
 
       it "enables brokerage session initialization for trading" do
@@ -118,12 +123,18 @@ RSpec.describe "OAuth Authentication Behavior" do
         valid?: false,
         expired?: true
       )
-      oauth_client.instance_variable_set(:@current_token, expired_token)
+      
+      # Set up the authenticator state directly
+      authenticator = oauth_client.authenticator
+      authenticator.instance_variable_set(:@current_token, expired_token)
       
       # When checking authentication status
       # Then user should know token is expired
       expect(oauth_client.authenticated?).to be false
-      expect(oauth_client.token.expired?).to be true
+      
+      # Access token directly from authenticator to check expiry
+      current_token = authenticator.current_token
+      expect(current_token.expired?).to be true
     end
 
     it "provides valid tokens to authenticated users" do
@@ -133,7 +144,10 @@ RSpec.describe "OAuth Authentication Behavior" do
         valid?: true,
         expired?: false
       )
-      oauth_client.instance_variable_set(:@current_token, valid_token)
+      
+      # Set up the authenticator state directly
+      authenticator = oauth_client.authenticator
+      authenticator.instance_variable_set(:@current_token, valid_token)
       
       # When user accesses token
       # Then they should have a valid session

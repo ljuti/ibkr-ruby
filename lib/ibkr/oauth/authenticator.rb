@@ -41,7 +41,7 @@ module Ibkr
       def logout
         return true unless authenticated?
 
-        response = http_client.post("/v1/api/logout")
+        response = http_client.post_raw("/v1/api/logout")
         if response.success?
           @current_token = nil
           true
@@ -55,7 +55,7 @@ module Ibkr
         ensure_authenticated!
         
         body = { publish: true, compete: priority }
-        response = http_client.post("/v1/api/iserver/auth/ssodh/init", body: body)
+        response = http_client.post_raw("/v1/api/iserver/auth/ssodh/init", body: body)
 
         if response.success?
           JSON.parse(response.body)
@@ -68,7 +68,7 @@ module Ibkr
       def ping
         ensure_authenticated!
         
-        response = http_client.post("/v1/api/tickle")
+        response = http_client.post_raw("/v1/api/tickle")
         if response.success?
           JSON.parse(response.body)
         else
@@ -185,7 +185,7 @@ module Ibkr
       end
 
       def refresh_token_if_needed
-        if @current_token&.expired?
+        if @current_token.nil? || @current_token.expired?
           authenticate
         end
       end

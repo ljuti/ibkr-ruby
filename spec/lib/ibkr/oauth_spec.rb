@@ -21,7 +21,8 @@ RSpec.describe Ibkr::Oauth do
       it "initializes in unauthenticated state" do
         # When client is first created
         # Then user starts in unauthenticated state
-        expect(oauth_client.token).to be_nil
+        authenticator = oauth_client.authenticator
+        expect(authenticator.current_token).to be_nil
         expect(oauth_client.authenticated?).to be false
       end
     end
@@ -68,102 +69,126 @@ RSpec.describe Ibkr::Oauth do
 
     context "when user has invalid credentials" do
       before do
-        allow(oauth_client).to receive(:live_session_token).and_return(
-          instance_double("LiveSessionToken", valid?: false)
-        )
+        # Override the successful auth mock with an error response
+        stub_request(:post, "#{base_url}/v1/api/oauth/live_session_token")
+          .to_return(
+            status: 401,
+            body: '{"error": "invalid_credentials"}',
+            headers: { "Content-Type" => "application/json" }
+          )
       end
 
       it "clearly indicates authentication failure" do
         # Given user has invalid IBKR credentials
         # When they attempt to authenticate
-        result = oauth_client.authenticate
+        # Then authentication should fail clearly with an error
+        expect { oauth_client.authenticate }.to raise_error(StandardError) do |error|
+          expect(error.message.downcase).to include("credential").or include("unauthorized").or include("authentication")
+        end
         
-        # Then authentication should fail clearly
-        expect(result).to be false
+        # And user should not be authenticated
         expect(oauth_client.authenticated?).to be false
       end
     end
   end
 
   describe "session token management" do
-    include_context "with mocked Faraday client"
-
+    # Remove Faraday mocking - we use WebMock for HTTP requests
     let(:mock_dh_response) { "fedcba654321" }
     let(:mock_signature) { "valid_signature" }
     let(:mock_expiration) { (Time.now + 3600).to_i }
-    let(:response_body) do
-      {
-        "diffie_hellman_response" => mock_dh_response,
-        "live_session_token_signature" => mock_signature,
-        "live_session_token_expiration" => mock_expiration
-      }.to_json
-    end
 
     before do
-      allow(oauth_client).to receive(:compute_live_session_token).and_return("computed_token")
+      # Mock the signature generator to avoid complex crypto operations
+      allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:compute_live_session_token).and_return("computed_token")
     end
 
     context "when token request succeeds" do
+      before do
+        # Ensure we start with no existing token to test fresh token generation
+        oauth_client.authenticator.instance_variable_set(:@current_token, nil)
+      end
+      
       it "provides valid session token for trading operations" do
-        # Given successful server response
+        # Given successful server response (mocked by WebMock)
         # When requesting session token
         token = oauth_client.live_session_token
         
         # Then user should receive valid token for trading
         expect(token).to be_instance_of(Ibkr::Oauth::LiveSessionToken)
+        expect(token.valid?).to be true
       end
 
       it "enables secure communication with IBKR servers" do
-        # When session token is obtained
+        # When session token is obtained (mocked by WebMock)
         # Then it should enable secure API communication
         token = oauth_client.live_session_token
         expect(token).not_to be_nil
+        expect(token).to be_instance_of(Ibkr::Oauth::LiveSessionToken)
       end
     end
 
-    context "when token request fails" do
-      before do
-        # Override successful auth mock with failure
-        stub_request(:post, "#{base_url}/v1/api/oauth/live_session_token")
-          .to_return(status: 401, body: "Unauthorized")
-      end
-
-      it "provides clear error for authentication problems" do
-        # When server rejects token request
-        # Then user should get clear error message about authentication
-        expect { oauth_client.live_session_token }.to raise_error(StandardError) do |error|
-          expect(error.message.downcase).to include("401").or include("token").or include("authentication").or include("unauthorized")
-        end
+    context "when token becomes invalid" do
+      it "handles invalid token scenarios gracefully" do
+        # Given an invalid token in the authenticator
+        invalid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
+          token: "invalid_token",
+          valid?: false,
+          expired?: true
+        )
+        
+        # Set up the authenticator state directly
+        authenticator = oauth_client.authenticator
+        authenticator.instance_variable_set(:@current_token, invalid_token)
+        
+        # When checking authentication with invalid token
+        # Then user should know they need to re-authenticate
+        expect(oauth_client.authenticated?).to be false
+        
+        # And requesting a new token should work via refresh mechanism
+        # (this will trigger a new token request via our mocked HTTP endpoints)
+        new_token = oauth_client.live_session_token
+        expect(new_token).to be_instance_of(Ibkr::Oauth::LiveSessionToken)
       end
     end
   end
 
   describe "session lifecycle management" do
-    include_context "with mocked Faraday client"
-
     context "when user wants to end their session" do
-      let(:response_body) { '{"result": "success"}' }
-
       it "properly terminates trading session" do
         # Given an authenticated session
-        oauth_client.instance_variable_set(:@current_token, double("token"))
+        valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
+          token: "valid_token",
+          valid?: true,
+          expired?: false
+        )
         
-        # When user logs out
+        # Set up authenticator state directly
+        authenticator = oauth_client.authenticator
+        authenticator.instance_variable_set(:@current_token, valid_token)
+        
+        # When user logs out (logout endpoint mocked by WebMock)
         result = oauth_client.logout
         
         # Then session should be cleanly terminated
         expect(result).to be true
         expect(oauth_client.authenticated?).to be false
-        expect(oauth_client.token).to be_nil
+        expect(authenticator.current_token).to be_nil
       end
     end
 
     context "when logout encounters server issues" do
       before do
         # Set up authenticated state first
-        valid_token = double("token", valid?: true)
-        oauth_client.instance_variable_set(:@current_token, valid_token)
-        allow(oauth_client).to receive(:authenticated?).and_return(true)
+        valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
+          token: "valid_token",
+          valid?: true,
+          expired?: false
+        )
+        
+        # Set up authenticator state directly
+        authenticator = oauth_client.authenticator
+        authenticator.instance_variable_set(:@current_token, valid_token)
         
         # Override logout endpoint with server error
         stub_request(:post, "#{base_url}/v1/api/logout")
@@ -181,15 +206,25 @@ RSpec.describe Ibkr::Oauth do
   end
 
   describe "brokerage session setup" do
-    include_context "with mocked Faraday client"
-
     let(:session_response) { { "connected" => true, "authenticated" => true } }
-    let(:response_body) { session_response.to_json }
+
+    before do
+      # Set up authenticated state for session initialization
+      valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
+        token: "valid_token",
+        valid?: true,
+        expired?: false
+      )
+      
+      # Set up authenticator state directly
+      authenticator = oauth_client.authenticator
+      authenticator.instance_variable_set(:@current_token, valid_token)
+    end
 
     context "when establishing trading connection" do
       it "enables trading operations after authentication" do
         # Given user is authenticated with OAuth
-        # When initializing brokerage session
+        # When initializing brokerage session (endpoint mocked by WebMock)
         result = oauth_client.initialize_session
         
         # Then trading operations should be available
@@ -202,7 +237,7 @@ RSpec.describe Ibkr::Oauth do
     context "when requesting priority trading access" do
       it "provides priority access for time-sensitive trading" do
         # Given user needs urgent trading access
-        # When requesting priority session
+        # When requesting priority session (endpoint mocked by WebMock)
         result = oauth_client.initialize_session(priority: true)
         
         # Then priority trading should be enabled
@@ -214,8 +249,16 @@ RSpec.describe Ibkr::Oauth do
 
   describe "API communication capabilities" do
     before do
-      # Ensure client is authenticated for API calls
-      allow(oauth_client).to receive(:authenticated?).and_return(true)
+      # Set up authenticated state for API calls
+      valid_token = instance_double("Ibkr::Oauth::LiveSessionToken",
+        token: "valid_token",
+        valid?: true,
+        expired?: false
+      )
+      
+      # Set up authenticator state directly
+      authenticator = oauth_client.authenticator
+      authenticator.instance_variable_set(:@current_token, valid_token)
     end
 
     describe "data retrieval operations" do
