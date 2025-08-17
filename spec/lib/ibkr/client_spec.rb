@@ -154,7 +154,7 @@ RSpec.describe Ibkr::Client do
       # Given an authenticated client
       # When trying to switch to unavailable account
       # Then it should raise an error
-      expect { authenticated_client.set_active_account("DU999999") }.to raise_error(ArgumentError, /not available/)
+      expect { authenticated_client.set_active_account("DU999999") }.to raise_error(Ibkr::ApiError::NotFound, /not found or not accessible/)
     end
 
     it "provides account context to services" do

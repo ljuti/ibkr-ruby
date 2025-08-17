@@ -126,7 +126,13 @@ module Ibkr
     def set_active_account(account_id)
       ensure_authenticated!
       unless @available_accounts.include?(account_id)
-        raise ArgumentError, "Account #{account_id} not available. Available accounts: #{@available_accounts.join(", ")}"
+        raise Ibkr::ApiError.account_not_found(
+          account_id,
+          context: {
+            available_accounts: @available_accounts,
+            operation: "set_active_account"
+          }
+        )
       end
       @active_account_id = account_id
 
@@ -223,7 +229,10 @@ module Ibkr
     def fetch_available_accounts
       # Ensure we have an authenticated brokerage session
       unless @oauth_client.authenticated?
-        raise Ibkr::AuthenticationError, "Client must be authenticated before fetching accounts"
+        raise Ibkr::AuthenticationError.credentials_invalid(
+          "Client must be authenticated before fetching accounts",
+          context: {operation: "fetch_accounts", default_account_id: @default_account_id}
+        )
       end
 
       # Initialize brokerage session if needed
@@ -245,13 +254,28 @@ module Ibkr
       if @default_account_id
         [@default_account_id]
       else
-        raise Ibkr::ApiError, "Failed to fetch available accounts: #{e.message}"
+        raise Ibkr::ApiError.with_context(
+          "Failed to fetch available accounts: #{e.message}",
+          context: {
+            operation: "fetch_accounts",
+            default_account_id: @default_account_id,
+            error_class: e.class.name,
+            original_error: e.message
+          }
+        )
       end
     end
 
     def ensure_authenticated!
       unless authenticated?
-        raise StandardError, "Not authenticated. Call authenticate first."
+        raise Ibkr::AuthenticationError.credentials_invalid(
+          "Not authenticated. Call authenticate first.",
+          context: {
+            operation: "ensure_authenticated",
+            default_account_id: @default_account_id,
+            available_accounts: @available_accounts
+          }
+        )
       end
     end
   end

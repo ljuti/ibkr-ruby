@@ -5,10 +5,10 @@ module Ibkr
   class RepositoryError < BaseError
     # Repository operation failed due to data access issues
     def self.data_access_failed(message, context: {})
-      new(
+      with_context(
         message,
         code: "REPOSITORY_DATA_ACCESS_FAILED",
-        details: context.merge(
+        context: context.merge(
           category: "repository",
           operation: "data_access"
         )
@@ -17,10 +17,10 @@ module Ibkr
 
     # Repository configuration is invalid
     def self.invalid_configuration(message, context: {})
-      new(
+      with_context(
         message,
         code: "REPOSITORY_INVALID_CONFIG",
-        details: context.merge(
+        context: context.merge(
           category: "repository",
           operation: "configuration"
         )
@@ -29,12 +29,39 @@ module Ibkr
 
     # Repository cache operation failed
     def self.cache_operation_failed(message, context: {})
-      new(
+      with_context(
         message,
         code: "REPOSITORY_CACHE_FAILED",
-        details: context.merge(
+        context: context.merge(
           category: "repository",
           operation: "cache"
+        )
+      )
+    end
+
+    # Repository type not supported
+    def self.unsupported_repository_type(repository_type, context: {})
+      with_context(
+        "Repository type '#{repository_type}' is not supported",
+        code: "REPOSITORY_UNSUPPORTED_TYPE",
+        context: context.merge(
+          category: "repository",
+          operation: "factory_creation",
+          repository_type: repository_type
+        )
+      )
+    end
+
+    # Repository data not found
+    def self.data_not_found(resource, identifier, context: {})
+      with_context(
+        "#{resource} with identifier '#{identifier}' not found in repository",
+        code: "REPOSITORY_DATA_NOT_FOUND",
+        context: context.merge(
+          category: "repository",
+          operation: "data_retrieval",
+          resource: resource,
+          identifier: identifier
         )
       )
     end

@@ -32,9 +32,9 @@ module Ibkr
           when :test
             TestAccountRepository.new(client, test_data: options[:test_data])
           else
-            raise Ibkr::RepositoryError.invalid_configuration(
-              "Unknown repository type: #{repository_type}",
-              context: {type: repository_type, available_types: REPOSITORY_TYPES.keys}
+            raise Ibkr::RepositoryError.unsupported_repository_type(
+              repository_type,
+              context: {available_types: REPOSITORY_TYPES.keys}
             )
           end
         end

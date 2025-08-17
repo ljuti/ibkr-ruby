@@ -129,15 +129,15 @@ module Ibkr
         when 200..299
           parse_successful_response(response)
         when 401
-          raise Ibkr::AuthenticationError.from_response(response)
+          raise Ibkr::AuthenticationError.from_response(response, context: build_error_context(response))
         when 429
-          raise Ibkr::RateLimitError.from_response(response)
+          raise Ibkr::RateLimitError.from_response(response, context: build_error_context(response))
         when 400..499
-          raise Ibkr::ApiError.from_response(response)
+          raise Ibkr::ApiError.from_response(response, context: build_error_context(response))
         when 500..599
-          raise Ibkr::ApiError::ServerError.from_response(response)
+          raise Ibkr::ApiError::ServerError.from_response(response, context: build_error_context(response))
         else
-          raise Ibkr::ApiError.from_response(response)
+          raise Ibkr::ApiError.from_response(response, context: build_error_context(response))
         end
       end
 
@@ -167,6 +167,19 @@ module Ibkr
         end
       rescue Zlib::Error => e
         raise Ibkr::ApiError, "Failed to decompress response: #{e.message}"
+      end
+
+      def build_error_context(response)
+        {
+          endpoint: response.respond_to?(:env) && response.env&.[](:url)&.path,
+          method: response.respond_to?(:env) && response.env&.[](:method)&.to_s&.upcase,
+          response_status: response.status,
+          request_id: response.headers["X-Request-ID"],
+          user_agent: response.respond_to?(:env) && response.env&.[](:request_headers)&.[]("User-Agent"),
+          content_type: response.headers["Content-Type"],
+          content_length: response.headers["Content-Length"],
+          retry_after: response.headers["Retry-After"]
+        }.compact
       end
 
       # Wrapper class for response objects
