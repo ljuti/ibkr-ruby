@@ -1,5 +1,29 @@
 # frozen_string_literal: true
 
+# SimpleCov must be started before any application code is loaded
+require "simplecov"
+SimpleCov.start do
+  add_filter "/spec/"
+  add_filter "/vendor/"
+  add_filter "/.bundle/"
+
+  add_group "Client", "lib/ibkr/client"
+  add_group "OAuth", "lib/ibkr/oauth"
+  add_group "Models", "lib/ibkr/models"
+  add_group "Services", "lib/ibkr/services"
+  add_group "Repositories", "lib/ibkr/repositories"
+  add_group "HTTP", "lib/ibkr/http"
+  add_group "WebSocket", "lib/ibkr/websocket"
+  add_group "Errors", "lib/ibkr/errors"
+  add_group "Configuration", "lib/ibkr/configuration"
+
+  # Set minimum coverage threshold (75% current, aiming for 80%)
+  minimum_coverage 75
+
+  # Use Rails-style coverage format
+  formatter SimpleCov::Formatter::HTMLFormatter
+end
+
 require "ibkr"
 require "dry-struct"
 require "faraday"

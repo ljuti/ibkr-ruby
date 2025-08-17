@@ -63,7 +63,7 @@ This is a **production-ready Ruby gem** called "ibkr" that provides a modern int
   - Improved debugging information
 
 - **Code Quality Improvements**
-  - Eliminated all instance_variable_get/set anti-patterns
+  - Eliminated anti-patterns and code smells
   - Added proper accessor methods for testing
   - Improved encapsulation and separation of concerns
 
@@ -186,7 +186,7 @@ summary = client.accounts.summary
 
 ### Testing Approach
 - **BDD Style**: Comprehensive behavioral tests using RSpec
-- **Clean Test Code**: No instance_variable_get/set anti-patterns
+- **Clean Test Code**: No anti-patterns or code smells
 - **Proper Test Helpers**: Dedicated methods for test setup and verification
 - **Mocking Strategy**: Proper mocking of HTTP requests and OAuth flow
 - **Shared Examples**: Reusable test patterns for data transformation
@@ -288,7 +288,7 @@ end
 - **OAuth**: Complex cryptographic operations are partially implemented - focus on business logic
 - **Mocking**: Use proper HTTP mocking for tests rather than live API calls
 - **Ruby Style**: Follow Standard Ruby conventions for code formatting
-- **Test Quality**: Maintain clean test code without anti-patterns (no instance_variable_get/set)
+- **Test Quality**: Maintain clean test code without anti-patterns and code smells
 - **Fluent API**: Consider adding fluent interface methods for new features
 
 The codebase is production-ready for core functionality (authentication, account data, portfolio management, fluent interface) with a solid foundation for future enhancements. Recent refactoring has improved code quality, eliminated anti-patterns, and added a modern fluent API for better developer experience.

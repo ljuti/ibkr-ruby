@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "date"
 require_relative "base_repository"
 require_relative "account_repository_interface"
 
@@ -55,7 +56,7 @@ module Ibkr
       def find_transactions(account_id, contract_id, days = 90)
         validate_test_account!(account_id)
 
-        all_transactions = @test_data[:transactions][account_id] || @test_data[:transactions][:default]
+        all_transactions = @test_data[:transactions][account_id] || @test_data[:transactions][:default] || []
 
         # Filter by contract ID and days
         all_transactions.select do |transaction|
@@ -173,7 +174,7 @@ module Ibkr
           transactions: {
             default: [
               {
-                "date" => "2024-08-14",
+                "date" => (Date.today - 5).to_s,
                 "cur" => "USD",
                 "pr" => 150.25,
                 "qty" => 100,
@@ -183,7 +184,7 @@ module Ibkr
                 "type" => "Trades"
               },
               {
-                "date" => "2024-08-10",
+                "date" => (Date.today - 10).to_s,
                 "cur" => "USD",
                 "pr" => 148.75,
                 "qty" => -50,

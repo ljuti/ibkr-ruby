@@ -12,3 +12,4 @@ gem "rspec", "~> 3.0"
 gem "webmock", "~> 3.19"
 
 gem "standard", "~> 1.3"
+gem "simplecov", require: false
