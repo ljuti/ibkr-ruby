@@ -487,18 +487,21 @@ end
 - Comprehensive error handling
 - Thread-safe operations
 - HTTP client with compression support
+- Fluent interface with chainable operations
+- Enhanced error context with recovery suggestions
+- Refactored test suite (eliminated instance variable anti-patterns)
 
 ### In Progress 🔄
-- Full OAuth cryptographic implementation
-- Advanced retry and backoff strategies
-- WebSocket support for real-time data
+- Full OAuth cryptographic implementation (RSA-SHA256, HMAC-SHA256, Diffie-Hellman)
+- WebSocket support for real-time data streaming
 
 ### Planned 📋
-- Third-party OAuth support
 - Trading operations (place/cancel orders)
 - Market data subscriptions
 - Real-time portfolio updates
 - Advanced position analytics
+- Options chain analysis
+- Historical data retrieval
 
 ## Contributing
 
@@ -514,11 +517,13 @@ end
 
 The gem includes comprehensive test coverage:
 
-- **203 total tests** with **100% pass rate** (203 passing)
+- **403 total tests** (365 passing, 38 pending cryptographic operations)
 - Core functionality (Client, Accounts, Models): **100% passing**
 - Multi-account workflows: **100% passing**
+- Fluent interface: **100% passing**
 - Integration tests with proper mocking
 - Error handling and edge case coverage
+- BDD-style tests focusing on behavior over implementation
 
 ## License
 

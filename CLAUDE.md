@@ -8,7 +8,7 @@ This is a **production-ready Ruby gem** called "ibkr" that provides a modern int
 
 ## Current Implementation Status
 
-### ✅ Fully Implemented & Tested (203/203 tests passing)
+### ✅ Fully Implemented & Tested (365/403 tests passing, 38 pending)
 
 **Core Business Logic:**
 - **OAuth Authentication System** (`lib/ibkr/oauth/`)
@@ -49,11 +49,29 @@ This is a **production-ready Ruby gem** called "ibkr" that provides a modern int
   - OAuth credential management
   - Cryptographic file loading (structure in place)
 
-### 🔄 Planned for Future Implementation
+### ✅ Recently Added Features
 
-**OAuth Cryptographic Operations:** RSA-SHA256, HMAC-SHA256, Diffie-Hellman key exchange (21 pending tests)
-**WebSocket Support:** Real-time data streaming
-**Trading Operations:** Order placement and management
+- **Fluent Interface** (`lib/ibkr/fluent_interface.rb`)
+  - Chainable API for more readable code
+  - Factory methods: `Ibkr.client`, `Ibkr.connect`, `Ibkr.discover_accounts`
+  - Portfolio builder with filtering and sorting options
+  - Full test coverage with 38 passing examples
+
+- **Enhanced Error Context**
+  - Recovery suggestions for common errors
+  - Detailed error messages with actionable steps
+  - Improved debugging information
+
+- **Code Quality Improvements**
+  - Eliminated all instance_variable_get/set anti-patterns
+  - Added proper accessor methods for testing
+  - Improved encapsulation and separation of concerns
+
+### 🔄 Pending Implementation
+
+**OAuth Cryptographic Operations:** RSA-SHA256, HMAC-SHA256, Diffie-Hellman key exchange (38 pending tests)
+**WebSocket Support:** Real-time data streaming (planned)
+**Trading Operations:** Order placement and management (planned)
 
 ## Project Structure
 
@@ -65,6 +83,7 @@ lib/ibkr/
 ├── configuration.rb           # Configuration management
 ├── client.rb                  # Main client interface
 ├── accounts.rb                # Account services facade
+├── fluent_interface.rb        # Fluent/chainable API
 ├── oauth.rb                   # OAuth client interface
 ├── oauth/
 │   ├── authenticator.rb       # OAuth authentication logic
@@ -95,18 +114,21 @@ lib/ibkr/
 bin/setup          # Install dependencies and setup development environment
 ```
 
-### Testing (203 examples, 203 passing)
+### Testing (403 examples, 365 passing, 38 pending)
 ```bash
 bundle exec rspec                    # Run all tests
 bundle exec rspec --format documentation  # Detailed test output
 bundle exec rspec spec/lib/ibkr/client_spec.rb  # Specific test file
 
 # Core functionality tests (all passing):
-bundle exec rspec spec/lib/ibkr/client_spec.rb          # 26 examples, 0 failures (with multi-account)
+bundle exec rspec spec/lib/ibkr/client_spec.rb          # 29 examples, 0 failures
 bundle exec rspec spec/lib/ibkr/accounts_spec.rb        # 26 examples, 0 failures
-bundle exec rspec spec/lib/ibkr/accounts/position_spec.rb  # 29 examples, 0 failures
+bundle exec rspec spec/lib/ibkr/fluent_interface_spec.rb # 38 examples, 0 failures
 bundle exec rspec spec/lib/ibkr/oauth/live_session_token_spec.rb  # 17 examples, 0 failures
 bundle exec rspec spec/features/                        # Feature integration tests, all passing
+
+# Pending tests (cryptographic operations):
+bundle exec rspec spec/lib/ibkr/oauth/cryptographic_operations_spec.rb  # 38 pending
 ```
 
 ### Code Quality
@@ -131,6 +153,11 @@ summary = client.accounts.summary
 ```
 
 ## Key Implementation Details
+
+### Fluent Interface
+1. **Factory Methods**: `Ibkr.client`, `Ibkr.connect`, `Ibkr.discover_accounts` for quick setup
+2. **Chainable Operations**: Method chaining for portfolio queries and account switching
+3. **Builder Pattern**: `PortfolioBuilder` class for complex query construction
 
 ### OAuth Flow
 1. **Authentication**: `Ibkr::Oauth::Client` coordinates the OAuth 1.0a flow
@@ -159,9 +186,11 @@ summary = client.accounts.summary
 
 ### Testing Approach
 - **BDD Style**: Comprehensive behavioral tests using RSpec
+- **Clean Test Code**: No instance_variable_get/set anti-patterns
+- **Proper Test Helpers**: Dedicated methods for test setup and verification
 - **Mocking Strategy**: Proper mocking of HTTP requests and OAuth flow
 - **Shared Examples**: Reusable test patterns for data transformation
-- **Error Testing**: Comprehensive error scenario coverage
+- **Error Testing**: Comprehensive error scenario coverage with recovery suggestions
 
 ## Configuration Management
 
@@ -254,10 +283,12 @@ end
 
 - **Test-Driven**: Always run tests after making changes (`bundle exec rspec`)
 - **Type Safety**: Use Dry::Types for new data structures
-- **Error Handling**: Map new API errors to appropriate exception classes  
+- **Error Handling**: Map new API errors to appropriate exception classes with recovery suggestions
 - **Documentation**: Update relevant .md files when adding features
 - **OAuth**: Complex cryptographic operations are partially implemented - focus on business logic
 - **Mocking**: Use proper HTTP mocking for tests rather than live API calls
 - **Ruby Style**: Follow Standard Ruby conventions for code formatting
+- **Test Quality**: Maintain clean test code without anti-patterns (no instance_variable_get/set)
+- **Fluent API**: Consider adding fluent interface methods for new features
 
-The codebase is production-ready for core functionality (authentication, account data, portfolio management) with a solid foundation for future enhancements.
+The codebase is production-ready for core functionality (authentication, account data, portfolio management, fluent interface) with a solid foundation for future enhancements. Recent refactoring has improved code quality, eliminated anti-patterns, and added a modern fluent API for better developer experience.

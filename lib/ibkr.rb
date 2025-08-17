@@ -33,22 +33,58 @@ module Ibkr
 
     # Fluent interface factory methods
 
-    # Create a client with default account (single-account workflow)
+    # Creates a new IBKR client instance with optional default account
+    #
+    # @param default_account_id [String, nil] Account ID to use as default (optional)
+    # @param live [Boolean, nil] Environment mode - true for production, false for sandbox
+    # @return [Ibkr::Client] A new client instance
+    #
+    # @example Single account setup
+    #   client = Ibkr.client("DU123456", live: false)
+    #
+    # @example Multi-account discovery
+    #   client = Ibkr.client(live: false)
     def client(default_account_id = nil, live: nil)
       Client.new(default_account_id: default_account_id, live: live)
     end
 
-    # Create a client for multi-account discovery workflow
+    # Creates a client specifically for multi-account discovery workflow
+    #
+    # @param live [Boolean, nil] Environment mode - true for production, false for sandbox
+    # @return [Ibkr::Client] A new client instance configured for account discovery
+    #
+    # @example
+    #   client = Ibkr.discover_accounts(live: false)
+    #   client.authenticate
+    #   puts client.available_accounts  # => ["DU123456", "DU789012"]
     def discover_accounts(live: nil)
       Client.new(live: live)
     end
 
-    # Create and authenticate client in one call
+    # Creates and authenticates a client in one call
+    #
+    # @param default_account_id [String, nil] Account ID to use as default (optional)
+    # @param live [Boolean, nil] Environment mode - true for production, false for sandbox
+    # @return [Ibkr::Client] An authenticated client instance
+    # @raise [Ibkr::AuthenticationError] if authentication fails
+    #
+    # @example Connect with default account
+    #   client = Ibkr.connect("DU123456", live: false)
+    #   summary = client.accounts.summary
     def connect(default_account_id = nil, live: nil)
       client(default_account_id, live: live).authenticate!
     end
 
-    # Create, authenticate, and discover accounts
+    # Creates, authenticates, and discovers all available accounts
+    #
+    # @param live [Boolean, nil] Environment mode - true for production, false for sandbox
+    # @return [Ibkr::Client] An authenticated client with discovered accounts
+    # @raise [Ibkr::AuthenticationError] if authentication fails
+    #
+    # @example
+    #   client = Ibkr.connect_and_discover(live: false)
+    #   puts client.available_accounts  # => ["DU123456", "DU789012"]
+    #   client.set_active_account("DU789012")
     def connect_and_discover(live: nil)
       discover_accounts(live: live).authenticate!
     end
