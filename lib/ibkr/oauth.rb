@@ -3,6 +3,10 @@
 require_relative "oauth/authenticator"
 require_relative "oauth/live_session_token"
 require_relative "oauth/signature_generator"
+require_relative "oauth/response"
+require_relative "oauth/headers"
+require_relative "oauth/parameters"
+require_relative "oauth/signatures"
 require_relative "http/client"
 
 module Ibkr

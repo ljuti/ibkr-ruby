@@ -207,7 +207,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
       it "refreshes and returns new token" do
         new_token = instance_double(Ibkr::Oauth::LiveSessionToken, valid?: true, expired?: false)
         allow(authenticator).to receive(:request_live_session_token).and_return(new_token)
-        
+
         result = authenticator.token
         expect(result).to eq(new_token)
       end
@@ -281,7 +281,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
 
   describe "#initialize_session" do
     let(:valid_token) { instance_double(Ibkr::Oauth::LiveSessionToken, valid?: true) }
-    
+
     context "when authenticated" do
       before do
         authenticator.current_token = valid_token
@@ -296,7 +296,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
           expect(mock_http_client).to receive(:post_raw)
             .with("/v1/api/iserver/auth/ssodh/init", body: {publish: true, compete: false})
             .and_return(success_response)
-          
+
           result = authenticator.initialize_session
           expect(result).to eq({"session" => "initialized"})
         end
@@ -305,7 +305,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
           expect(mock_http_client).to receive(:post_raw)
             .with("/v1/api/iserver/auth/ssodh/init", body: {publish: true, compete: true})
             .and_return(success_response)
-          
+
           result = authenticator.initialize_session(priority: true)
           expect(result).to eq({"session" => "initialized"})
         end
@@ -318,7 +318,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
 
         it "raises SessionInitializationFailed error" do
           allow(mock_http_client).to receive(:post_raw).and_return(failed_response)
-          
+
           expect { authenticator.initialize_session }
             .to raise_error(Ibkr::AuthenticationError)
         end
@@ -335,7 +335,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
 
   describe "#ping" do
     let(:valid_token) { instance_double(Ibkr::Oauth::LiveSessionToken, valid?: true) }
-    
+
     context "when authenticated" do
       before do
         authenticator.current_token = valid_token
@@ -350,7 +350,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
           expect(mock_http_client).to receive(:post_raw)
             .with("/v1/api/tickle")
             .and_return(success_response)
-          
+
           result = authenticator.ping
           expect(result).to eq({"ssoExpires" => 120, "collission" => false})
         end
@@ -363,7 +363,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
 
         it "raises ApiError with ping failed message" do
           allow(mock_http_client).to receive(:post_raw).and_return(failed_response)
-          
+
           expect { authenticator.ping }
             .to raise_error(Ibkr::ApiError) do |error|
               expect(error.message).to include("Ping failed")
@@ -390,24 +390,24 @@ RSpec.describe Ibkr::Oauth::Authenticator do
 
     it "builds and formats OAuth header for authentication" do
       header = authenticator.oauth_header_for_authentication
-      
+
       expect(header).to include('oauth_consumer_key="test_consumer_key"')
       expect(header).to include('oauth_token="test_access_token"')
       expect(header).to include('oauth_nonce="nonce123"')
       expect(header).to include('oauth_timestamp="1234567890"')
       expect(header).to include('oauth_signature_method="RSA-SHA256"')
       expect(header).to include('diffie_hellman_challenge="dh_challenge_value"')
-      expect(header).to include('oauth_signature=')
+      expect(header).to include("oauth_signature=")
       expect(header).to include('realm="test_realm"')
     end
 
     it "generates unique nonce and timestamp for each call" do
       expect(mock_signature_generator).to receive(:generate_nonce).twice.and_return("nonce1", "nonce2")
       expect(mock_signature_generator).to receive(:generate_timestamp).twice.and_return("time1", "time2")
-      
+
       header1 = authenticator.oauth_header_for_authentication
       header2 = authenticator.oauth_header_for_authentication
-      
+
       expect(header1).not_to eq(header2)
     end
 
@@ -443,7 +443,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
           method: "GET",
           url: "https://api.ibkr.com/v1/api/accounts"
         )
-        
+
         expect(header).to include('oauth_signature_method="HMAC-SHA256"')
         expect(header).to include('oauth_signature="hmac_signature"')
       end
@@ -451,7 +451,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
       it "passes query and body parameters to signature generator" do
         query = {page: 1}
         body = {data: "test"}
-        
+
         expect(mock_signature_generator).to receive(:generate_hmac_signature).with(
           hash_including(
             method: "POST",
@@ -461,7 +461,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
             live_session_token: "live_session_token_value"
           )
         )
-        
+
         authenticator.oauth_header_for_api_request(
           method: "POST",
           url: "https://api.ibkr.com/test",
@@ -473,7 +473,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
 
     context "when not authenticated" do
       it "raises AuthenticationError" do
-        expect { 
+        expect {
           authenticator.oauth_header_for_api_request(
             method: "GET",
             url: "https://api.ibkr.com/test"
@@ -488,7 +488,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
       valid_token = instance_double(Ibkr::Oauth::LiveSessionToken, valid?: true, expired?: false)
       authenticator.current_token = valid_token
       allow(authenticator).to receive(:refresh_token_if_needed)
-      
+
       expect(authenticator.live_session_token).to eq(authenticator.token)
     end
   end
@@ -498,7 +498,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
       let(:dh_response) { "dh_response_value" }
       let(:signature) { "token_signature" }
       let(:expiration) { "1234567890" }
-      
+
       context "with successful response" do
         let(:success_response) do
           double("response",
@@ -521,7 +521,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
 
         it "requests and parses live session token" do
           token = authenticator.send(:request_live_session_token)
-          
+
           expect(token).to be_a(Ibkr::Oauth::LiveSessionToken)
           expect(mock_signature_generator).to have_received(:compute_live_session_token).with(dh_response)
         end
@@ -534,7 +534,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
 
         it "raises AuthenticationError" do
           allow(mock_http_client).to receive(:post_raw).and_return(failed_response)
-          
+
           expect { authenticator.send(:request_live_session_token) }
             .to raise_error(Ibkr::AuthenticationError)
         end
@@ -547,7 +547,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
 
         it "raises AuthenticationError with parse error message" do
           allow(mock_http_client).to receive(:post_raw).and_return(invalid_response)
-          
+
           expect { authenticator.send(:request_live_session_token) }
             .to raise_error(Ibkr::AuthenticationError, /Invalid response format/)
         end
@@ -561,7 +561,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
         it "creates a LiveSessionToken with nil values when fields are missing" do
           allow(mock_http_client).to receive(:post_raw).and_return(incomplete_response)
           allow(mock_signature_generator).to receive(:compute_live_session_token).and_return("computed_token")
-          
+
           # When fields are missing, LiveSessionToken.new will be called with nil values
           token = authenticator.send(:request_live_session_token)
           expect(token).to be_a(Ibkr::Oauth::LiveSessionToken)
@@ -574,7 +574,7 @@ RSpec.describe Ibkr::Oauth::Authenticator do
     describe "#ensure_authenticated!" do
       context "when authenticated" do
         let(:valid_token) { instance_double(Ibkr::Oauth::LiveSessionToken, valid?: true) }
-        
+
         it "does not raise error" do
           authenticator.current_token = valid_token
           expect { authenticator.send(:ensure_authenticated!) }.not_to raise_error
@@ -622,45 +622,15 @@ RSpec.describe Ibkr::Oauth::Authenticator do
       end
     end
 
-    describe "#format_oauth_header" do
-      it "formats params as OAuth header string" do
-        params = {
-          "oauth_consumer_key" => "key123",
-          "oauth_nonce" => "nonce456",
-          "realm" => "test"
-        }
-        
-        header = authenticator.send(:format_oauth_header, params)
-        
-        expect(header).to eq('oauth_consumer_key="key123", oauth_nonce="nonce456", realm="test"')
-      end
-
-      it "sorts parameters alphabetically" do
-        params = {
-          "z_param" => "last",
-          "a_param" => "first",
-          "m_param" => "middle"
-        }
-        
-        header = authenticator.send(:format_oauth_header, params)
-        
-        expect(header).to eq('a_param="first", m_param="middle", z_param="last"')
+    describe "#header_factory" do
+      it "creates a header factory instance" do
+        expect(authenticator.header_factory).to be_a(Ibkr::Oauth::Headers)
       end
     end
 
-    describe "#realm" do
-      context "in production" do
-        it "returns limited_poa" do
-          allow(mock_config).to receive(:production?).and_return(true)
-          expect(authenticator.send(:realm)).to eq("limited_poa")
-        end
-      end
-
-      context "not in production" do
-        it "returns test_realm" do
-          allow(mock_config).to receive(:production?).and_return(false)
-          expect(authenticator.send(:realm)).to eq("test_realm")
-        end
+    describe "#response_parser" do
+      it "creates a response parser instance" do
+        expect(authenticator.response_parser).to be_a(Ibkr::Oauth::Response)
       end
     end
   end
