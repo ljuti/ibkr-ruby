@@ -103,7 +103,8 @@ module Ibkr
       end
 
       def needs_auth?(path)
-        !path.include?("/oauth/live_session_token") || @authenticator
+        # We need auth if we have an authenticator (for any path including oauth/live_session_token)
+        !!@authenticator
       end
 
       def authorization_header(method, url, params, body)
