@@ -7,7 +7,7 @@ RSpec.describe Ibkr::WebSocket::ReconnectionStrategy do
 
   let(:websocket_client) { double("websocket_client", connect: true, connected?: false) }
   let(:reconnection_strategy) { described_class.new(websocket_client) }
-  
+
   subject { reconnection_strategy }
 
   describe "initialization" do
@@ -33,7 +33,7 @@ RSpec.describe Ibkr::WebSocket::ReconnectionStrategy do
           backoff_multiplier: 1.5,
           jitter: false
         }
-        
+
         # When creating strategy with custom config
         strategy = described_class.new(websocket_client, config)
 
@@ -48,10 +48,10 @@ RSpec.describe Ibkr::WebSocket::ReconnectionStrategy do
       it "validates configuration parameters" do
         # Given invalid configuration
         invalid_configs = [
-          { max_attempts: -1 },
-          { base_delay: -1.0 },
-          { max_delay: 0.5 },  # Less than base_delay
-          { backoff_multiplier: 0.5 }  # Less than 1.0
+          {max_attempts: -1},
+          {base_delay: -1.0},
+          {max_delay: 0.5},  # Less than base_delay
+          {backoff_multiplier: 0.5}  # Less than 1.0
         ]
 
         invalid_configs.each do |config|
@@ -154,7 +154,7 @@ RSpec.describe Ibkr::WebSocket::ReconnectionStrategy do
 
         # When connection succeeds
         reconnection_strategy.reset_reconnect_attempts
-        
+
         # Then attempt count should be reset
         expect(reconnection_strategy.reconnect_attempts).to eq(0)
         expect(reconnection_strategy.can_reconnect?).to be true
@@ -294,17 +294,15 @@ RSpec.describe Ibkr::WebSocket::ReconnectionStrategy do
         # When max attempts are reached through the automatic flow
         allow(websocket_client).to receive(:connect).and_raise(StandardError, "Failed")
         allow(websocket_client).to receive(:connected?).and_return(false)
-        
+
         # Simulate automatic reconnection flow that would hit max attempts
         # First, make the attempts to reach the max
         2.times do
-          begin
-            strategy.attempt_reconnect
-          rescue Ibkr::WebSocket::ReconnectionError
-            # Expected when connection fails
-          end
+          strategy.attempt_reconnect
+        rescue Ibkr::WebSocket::ReconnectionError
+          # Expected when connection fails
         end
-        
+
         # Now simulate the timer callback logic that checks if we can still reconnect
         # This is where automatic reconnection should be disabled
         if !strategy.send(:can_reconnect?)
@@ -366,11 +364,9 @@ RSpec.describe Ibkr::WebSocket::ReconnectionStrategy do
         allow(websocket_client).to receive(:connected?).and_return(true)
 
         2.times do
-          begin
-            reconnection_strategy.attempt_reconnect
-          rescue Ibkr::WebSocket::ReconnectionError
-            # Expected failures
-          end
+          reconnection_strategy.attempt_reconnect
+        rescue Ibkr::WebSocket::ReconnectionError
+          # Expected failures
         end
 
         reconnection_strategy.handle_successful_reconnection
@@ -419,8 +415,8 @@ RSpec.describe Ibkr::WebSocket::ReconnectionStrategy do
 
       it "respects server reconnection guidance" do
         # Given server provides reconnection guidance
-        server_guidance = { retry_after: 60, max_attempts: 3 }
-        
+        server_guidance = {retry_after: 60, max_attempts: 3}
+
         # When handling guidance
         reconnection_strategy.apply_server_guidance(server_guidance)
 
@@ -436,19 +432,17 @@ RSpec.describe Ibkr::WebSocket::ReconnectionStrategy do
       it "efficiently handles rapid reconnection attempts" do
         # Given rapid connection failures
         start_time = Time.now
-        
+
         # When handling multiple failures quickly
         5.times do |i|
-          begin
-            allow(websocket_client).to receive(:connect).and_raise(StandardError, "Failed #{i}")
-            reconnection_strategy.attempt_reconnect
-          rescue Ibkr::WebSocket::ReconnectionError
-            # Expected
-          end
+          allow(websocket_client).to receive(:connect).and_raise(StandardError, "Failed #{i}")
+          reconnection_strategy.attempt_reconnect
+        rescue Ibkr::WebSocket::ReconnectionError
+          # Expected
         end
-        
+
         end_time = Time.now
-        
+
         # Then processing should be efficient
         expect(end_time - start_time).to be < 0.1  # Under 100ms
       end
@@ -474,19 +468,17 @@ RSpec.describe Ibkr::WebSocket::ReconnectionStrategy do
       it "prevents memory leaks during long reconnection periods" do
         # Given long period of reconnection attempts
         start_memory = GC.stat[:heap_live_slots]
-        
+
         20.times do |i|
-          begin
-            allow(websocket_client).to receive(:connect).and_raise(StandardError, "Failed #{i}")
-            reconnection_strategy.attempt_reconnect
-          rescue Ibkr::WebSocket::ReconnectionError
-            # Expected
-          end
+          allow(websocket_client).to receive(:connect).and_raise(StandardError, "Failed #{i}")
+          reconnection_strategy.attempt_reconnect
+        rescue Ibkr::WebSocket::ReconnectionError
+          # Expected
         end
-        
+
         GC.start
         end_memory = GC.stat[:heap_live_slots]
-        
+
         # Then memory growth should be minimal
         memory_growth = end_memory - start_memory
         expect(memory_growth).to be < 10000  # Less than 10k new objects

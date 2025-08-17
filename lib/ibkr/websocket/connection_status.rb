@@ -6,9 +6,9 @@ module Ibkr
     # Replaces complex hash returns with structured, typed data
     class ConnectionStatus
       attr_reader :state, :connected, :authenticated, :healthy, :connection_id,
-                  :uptime, :last_ping_at, :last_pong_at, :heartbeat_lag,
-                  :websocket_ready_state, :websocket_nil, :websocket_url,
-                  :eventmachine_running, :has_errors
+        :uptime, :last_ping_at, :last_pong_at, :heartbeat_lag,
+        :websocket_ready_state, :websocket_nil, :websocket_url,
+        :eventmachine_running, :has_errors
 
       def initialize(
         state:,

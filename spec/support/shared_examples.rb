@@ -76,7 +76,7 @@ end
 RSpec.shared_examples "a WebSocket connection lifecycle" do
   it "handles connection establishment" do
     # WebSocket connections require full open + auth cycle
-    expect { 
+    expect {
       subject.connect
       if respond_to?(:simulate_websocket_open)
         simulate_websocket_open
@@ -100,7 +100,7 @@ RSpec.shared_examples "a WebSocket connection lifecycle" do
 
   it "maintains connection state correctly" do
     expect(subject.connection_state).to eq(:disconnected)
-    
+
     subject.connect
     if respond_to?(:simulate_websocket_open)
       simulate_websocket_open
@@ -111,7 +111,7 @@ RSpec.shared_examples "a WebSocket connection lifecycle" do
     # After full authentication cycle, expect authenticated state
     expected_state = respond_to?(:auth_status_message) ? :authenticated : :connected
     expect(subject.connection_state).to eq(expected_state)
-    
+
     subject.disconnect
     expect(subject.connection_state).to eq(:disconnected)
   end
@@ -128,7 +128,7 @@ RSpec.shared_examples "a WebSocket message handler" do
   end
 
   it "validates message types" do
-    invalid_message = { type: "unknown_type", data: {} }
+    invalid_message = {type: "unknown_type", data: {}}
     expect { subject.handle_message(invalid_message) }.not_to raise_error
     expect(subject.last_error).to include("unknown message type")
   end
@@ -137,10 +137,10 @@ end
 RSpec.shared_examples "a WebSocket subscription manager" do
   it "tracks subscription state" do
     expect(subject.subscriptions).to be_empty
-    
+
     subscription_id = subject.subscribe(subscription_request)
     expect(subject.subscriptions).to include(subscription_id)
-    
+
     subject.unsubscribe(subscription_id)
     expect(subject.subscriptions).not_to include(subscription_id)
   end
@@ -148,7 +148,7 @@ RSpec.shared_examples "a WebSocket subscription manager" do
   it "prevents duplicate subscriptions" do
     id1 = subject.subscribe(subscription_request)
     id2 = subject.subscribe(subscription_request)
-    
+
     expect(id1).to eq(id2)
     expect(subject.subscriptions.size).to eq(1)
   end
@@ -156,11 +156,11 @@ RSpec.shared_examples "a WebSocket subscription manager" do
   it "handles subscription limits" do
     # Use factory to create manager with limits
     limited_manager = build_subscription_manager(max_total: 2)
-    
-    limited_manager.subscribe({ channel: "market_data", symbols: ["AAPL"] })
-    limited_manager.subscribe({ channel: "market_data", symbols: ["GOOGL"] })
-    
-    expect { limited_manager.subscribe({ channel: "market_data", symbols: ["MSFT"] }) }.to raise_error(Ibkr::WebSocket::SubscriptionError)
+
+    limited_manager.subscribe({channel: "market_data", symbols: ["AAPL"]})
+    limited_manager.subscribe({channel: "market_data", symbols: ["GOOGL"]})
+
+    expect { limited_manager.subscribe({channel: "market_data", symbols: ["MSFT"]}) }.to raise_error(Ibkr::WebSocket::SubscriptionError)
   end
 end
 
@@ -178,10 +178,10 @@ RSpec.shared_examples "a WebSocket reconnection strategy" do
 
   it "tracks reconnection attempts" do
     expect(subject.reconnect_attempts).to eq(0)
-    
+
     subject.attempt_reconnect
     expect(subject.reconnect_attempts).to eq(1)
-    
+
     subject.reset_reconnect_attempts
     expect(subject.reconnect_attempts).to eq(0)
   end
@@ -191,10 +191,10 @@ RSpec.shared_examples "a real-time data processor" do
   it "processes data updates in correct order" do
     updates = []
     subject.on_update { |data| updates << data }
-    
+
     subject.process_message(first_update)
     subject.process_message(second_update)
-    
+
     expect(updates).to eq([first_update[:data], second_update[:data]])
   end
 
@@ -202,11 +202,11 @@ RSpec.shared_examples "a real-time data processor" do
     # Should be implemented based on timestamp ordering
     updates = []
     subject.on_update { |data| updates << data }
-    
+
     # Send newer message first
     subject.process_message(newer_message)
     subject.process_message(older_message)
-    
+
     # Should be reordered by timestamp
     expect(updates.first[:timestamp]).to be < updates.last[:timestamp]
   end
@@ -214,10 +214,10 @@ RSpec.shared_examples "a real-time data processor" do
   it "filters duplicate messages" do
     updates = []
     subject.on_update { |data| updates << data }
-    
+
     subject.process_message(duplicate_message)
     subject.process_message(duplicate_message)
-    
+
     expect(updates.size).to eq(1)
   end
 end

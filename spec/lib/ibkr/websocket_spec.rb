@@ -27,7 +27,7 @@ RSpec.describe Ibkr::WebSocket do
 
     it "creates WebSocket client through main client" do
       websocket_client = client.websocket
-      
+
       expect(websocket_client).to be_a(Ibkr::WebSocket::Client)
       expect(websocket_client.account_id).to eq("DU123456")
       expect(websocket_client.live_mode?).to be false
@@ -35,14 +35,14 @@ RSpec.describe Ibkr::WebSocket do
 
     it "creates streaming interfaces" do
       streaming = client.streaming
-      
+
       expect(streaming).to be_a(Ibkr::WebSocket::Streaming)
       expect(streaming.client).to be_a(Ibkr::WebSocket::Client)
     end
 
     it "provides real-time market data interface" do
       market_data = client.real_time_data
-      
+
       expect(market_data).to be_a(Ibkr::WebSocket::MarketData)
       expect(market_data.websocket_client).to be_a(Ibkr::WebSocket::Client)
     end

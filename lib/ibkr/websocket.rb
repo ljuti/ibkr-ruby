@@ -16,7 +16,7 @@ module Ibkr
   #
   # Features:
   # - Real-time market data streaming
-  # - Portfolio and account value streaming  
+  # - Portfolio and account value streaming
   # - Order status and execution streaming
   # - Automatic connection management and reconnection
   # - Subscription management with rate limiting
@@ -26,7 +26,7 @@ module Ibkr
   # @example Basic usage
   #   client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
   #   websocket = client.websocket
-  #   
+  #
   #   websocket.connect  # Automatically starts EventMachine if needed
   #   websocket.subscribe_market_data(["AAPL"], ["price", "volume"])
   #   websocket.on_market_data { |data| puts "#{data[:symbol]}: $#{data[:price]}" }
@@ -42,10 +42,10 @@ module Ibkr
   #   # EventMachine is automatically started in a background thread
   #   websocket = client.websocket
   #   websocket.connect  # Works in IRB/console without blocking
-  #   
+  #
   #   # Check EventMachine status
   #   websocket.eventmachine_status  # => { running: true, thread_running: true }
-  #   
+  #
   #   # Clean shutdown (optional, useful when exiting console)
   #   websocket.stop_eventmachine!
   #

@@ -18,13 +18,13 @@ RSpec.shared_context "with mocked WebSocket connection" do
   before do
     # Ensure mock_websocket is reset for each test
     allow(mock_websocket).to receive(:ready_state).and_return(Faye::WebSocket::API::OPEN)
-    
+
     allow(Faye::WebSocket::Client).to receive(:new) do |url, protocols, options|
       # Reset event handlers for each new WebSocket
       websocket_events.clear
       mock_websocket
     end
-    
+
     # Capture event handlers for simulation
     allow(mock_websocket).to receive(:on) do |event, &block|
       websocket_events[event] = block
@@ -180,7 +180,7 @@ RSpec.shared_context "with WebSocket subscriptions" do
             currency: "USD"
           },
           {
-            key: "TotalCashValue-S", 
+            key: "TotalCashValue-S",
             value: "25000.00",
             currency: "USD"
           }
@@ -217,7 +217,7 @@ RSpec.shared_context "with WebSocket subscriptions" do
 
   let(:portfolio_subscription) do
     {
-      type: "subscribe", 
+      type: "subscribe",
       channel: "portfolio",
       account_id: "DU123456"
     }
@@ -326,19 +326,19 @@ RSpec.shared_context "with WebSocket performance monitoring" do
   around(:each, :performance) do |example|
     start_time = Time.now
     start_memory = GC.stat[:heap_live_slots]
-    
+
     example.run
-    
+
     end_time = Time.now
     end_memory = GC.stat[:heap_live_slots]
-    
+
     duration = end_time - start_time
     memory_delta = end_memory - start_memory
-    
+
     if duration > 0.5
       puts "⚠️  Slow WebSocket test: #{example.metadata[:full_description]} (#{duration.round(2)}s)"
     end
-    
+
     if memory_delta > 10000
       puts "⚠️  High memory usage: #{example.metadata[:full_description]} (+#{memory_delta} slots)"
     end
@@ -348,35 +348,34 @@ end
 # Mock EventMachine for testing without actual event loop
 RSpec.shared_context "with mocked EventMachine" do
   before do
-    # Mock EventMachine.reactor_running? to return true 
+    # Mock EventMachine.reactor_running? to return true
     allow(EventMachine).to receive(:reactor_running?).and_return(true)
-    
+
     # Mock EventMachine.run to execute block immediately
     allow(EventMachine).to receive(:run) do |&block|
-      block.call if block
+      block&.call
     end
-    
+
     # Mock EventMachine.stop
     allow(EventMachine).to receive(:stop)
-    
-    # Mock EventMachine.next_tick to execute immediately  
+
+    # Mock EventMachine.next_tick to execute immediately
     allow(EventMachine).to receive(:next_tick) do |&block|
-      block.call if block
+      block&.call
     end
-    
+
     # Mock EventMachine timers - Execute short delays immediately, skip long delays (timeouts)
     allow(EventMachine).to receive(:add_timer) do |delay, &block|
       # Execute callbacks for short delays (like ping timers) but not long delays (timeouts)
       if delay <= 2  # Execute timers with delay <= 2 seconds (ping timers)
-        block.call if block
+        block&.call
       end
       # Return a timer mock for all cases
       double("timer", cancel: nil)
     end
-    
+
     allow(EventMachine).to receive(:add_periodic_timer) do |interval, &block|
       double("periodic_timer", cancel: nil)
     end
   end
 end
-

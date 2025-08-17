@@ -29,15 +29,15 @@ RSpec.describe "Interactive Brokers WebSocket Authentication", type: :feature do
       it "successfully authenticates using cookie-based session token" do
         # When they establish a WebSocket connection
         websocket_client.connect
-        
+
         # Then connection should be in connecting state initially
         expect(websocket_client.connection_state).to eq(:connecting)
 
         # When WebSocket opens
         simulate_websocket_open
         expect(websocket_client.connection_state).to eq(:authenticating)
-        
-        # Expect tic ping to be sent for session activation  
+
+        # Expect tic ping to be sent for session activation
         expect(mock_websocket).to have_received(:send).with("tic")
 
         # When IBKR sends authentication confirmation
@@ -61,7 +61,7 @@ RSpec.describe "Interactive Brokers WebSocket Authentication", type: :feature do
         }
         allow(oauth_client).to receive(:ping).and_return(invalid_tickle_response)
 
-        # When they attempt to authenticate via WebSocket  
+        # When they attempt to authenticate via WebSocket
         expect {
           websocket_client.connect
         }.to raise_error(Ibkr::WebSocket::AuthenticationError)
@@ -74,10 +74,10 @@ RSpec.describe "Interactive Brokers WebSocket Authentication", type: :feature do
         # Given multiple connection attempts
         first_session = "session_token_1"
         second_session = "session_token_2"
-        
+
         first_response = tickle_response.dup
         first_response["session"] = first_session
-        
+
         second_response = tickle_response.dup
         second_response["session"] = second_session
 
@@ -86,7 +86,7 @@ RSpec.describe "Interactive Brokers WebSocket Authentication", type: :feature do
         # Capture WebSocket creation calls
         websocket_calls = []
         allow(Faye::WebSocket::Client).to receive(:new) do |url, protocols, options|
-          websocket_calls << { url: url, protocols: protocols, options: options }
+          websocket_calls << {url: url, protocols: protocols, options: options}
           websocket_events.clear
           mock_websocket
         end
@@ -120,7 +120,6 @@ RSpec.describe "Interactive Brokers WebSocket Authentication", type: :feature do
         expect(websocket_client.authenticated?).to be true
       end
     end
-
   end
 
   describe "Security validation and compliance" do

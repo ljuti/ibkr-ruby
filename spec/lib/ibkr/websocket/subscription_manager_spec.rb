@@ -9,7 +9,7 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
   let(:websocket_client) { double("websocket_client", send_message: true, authenticated?: true, emit: true, account_id: "DU123456") }
   let(:subscription_manager) { described_class.new(websocket_client) }
   let(:subscription_request) { market_data_subscription }
-  
+
   subject { subscription_manager }
 
   describe "initialization" do
@@ -166,7 +166,7 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
 
         # And unsubscribe message should be sent (2 calls total: subscribe + unsubscribe)
         expect(websocket_client).to have_received(:send_message).twice
-        
+
         # Check the last call was an unsubscribe message
         expect(websocket_client).to have_received(:send_message).with(
           hash_including(
@@ -217,7 +217,7 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
       it "enforces overall subscription limit to maintain system stability" do
         # Given a trading environment with conservative limits
         manager = described_class.new(websocket_client)
-        manager.configure_for_testing(limits: { total: 2 })
+        manager.configure_for_testing(limits: {total: 2})
 
         # When trader creates subscriptions up to their limit
         manager.subscribe(channel: "market_data", symbols: ["AAPL"])
@@ -232,7 +232,7 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
       it "applies channel-specific limits for specialized data streams" do
         # Given a system with conservative portfolio subscription limits
         manager = described_class.new(websocket_client)
-        manager.configure_for_testing(limits: { portfolio: 2 })
+        manager.configure_for_testing(limits: {portfolio: 2})
 
         # When trader creates portfolio subscriptions up to limit
         2.times { |i| manager.subscribe(channel: "portfolio", account_id: "DU000#{i}") }
@@ -396,12 +396,12 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
             {
               subscription_id: "sub_123",
               channel: "market_data",
-              parameters: { symbols: ["AAPL"], fields: ["price"] }
+              parameters: {symbols: ["AAPL"], fields: ["price"]}
             },
             {
               subscription_id: "sub_456",
               channel: "portfolio",
-              parameters: { account_id: "DU123456" }
+              parameters: {account_id: "DU123456"}
             }
           ]
         }
@@ -412,7 +412,7 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
         # Then subscriptions should be recreated
         expect(subscription_manager.subscription_count).to eq(2)
         expect(subscription_manager.subscriptions).to include("sub_123", "sub_456")
-        
+
         # And subscription messages should be sent
         expect(websocket_client).to have_received(:send_message).twice
       end
@@ -421,8 +421,8 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
         # Given recovery state with some invalid subscriptions
         recovery_state = {
           subscriptions: [
-            { subscription_id: "sub_valid", channel: "market_data", parameters: { symbols: ["AAPL"] } },
-            { subscription_id: "sub_invalid", channel: "invalid_channel", parameters: {} }
+            {subscription_id: "sub_valid", channel: "market_data", parameters: {symbols: ["AAPL"]}},
+            {subscription_id: "sub_invalid", channel: "invalid_channel", parameters: {}}
           ]
         }
 
@@ -444,14 +444,14 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
         # Given a system configured for high-volume trading operations
         manager = described_class.new(websocket_client)
         manager.configure_for_testing(
-          limits: { total: 2000, market_data: 2000 },
+          limits: {total: 2000, market_data: 2000},
           rate_limit: 2000  # No rate limiting for performance test
         )
         subscription_count = 1000
-        
+
         start_time = Time.now
         subscription_ids = []
-        
+
         subscription_count.times do |i|
           id = manager.subscribe(
             channel: "market_data",
@@ -460,9 +460,9 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
           )
           subscription_ids << id
         end
-        
+
         end_time = Time.now
-        
+
         # Then operations should be efficient
         expect(end_time - start_time).to be < 1.0  # Under 1 second
         expect(manager.subscription_count).to be <= subscription_count
@@ -472,10 +472,10 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
         # Given a system with many active trading subscriptions
         manager = described_class.new(websocket_client)
         manager.configure_for_testing(
-          limits: { total: 200, market_data: 200 },
+          limits: {total: 200, market_data: 200},
           rate_limit: 200  # No rate limiting for performance test
         )
-        
+
         100.times do |i|
           id = manager.subscribe(channel: "market_data", symbols: ["STOCK#{i}"])
           manager.handle_subscription_response(subscription_id: id, status: "success")

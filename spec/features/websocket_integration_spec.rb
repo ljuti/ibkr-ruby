@@ -73,7 +73,7 @@ RSpec.describe "Interactive Brokers WebSocket Integration", type: :feature, webs
 
         market_subscription = websocket_client.subscribe_market_data(["AAPL", "GOOGL"], ["price"])
         portfolio_subscription = websocket_client.subscribe_portfolio("DU123456")
-        
+
         simulate_websocket_message(subscription_success_response.merge(subscription_id: market_subscription))
         simulate_websocket_message(subscription_success_response.merge(subscription_id: portfolio_subscription, channel: "portfolio"))
 
@@ -170,7 +170,7 @@ RSpec.describe "Interactive Brokers WebSocket Integration", type: :feature, webs
 
         # When receiving rapid updates (simulating high-frequency trading)
         start_time = Time.now
-        
+
         100.times do |i|
           update = market_data_update.dup
           update[:data][:price] = 150.0 + (i * 0.01)
@@ -220,16 +220,16 @@ RSpec.describe "Interactive Brokers WebSocket Integration", type: :feature, webs
           order_event[:filled_quantity] = [0, 0, 25, 50][i]
           order_event[:remaining_quantity] = 50 - [0, 0, 25, 50][i]
           order_event[:timestamp] = Time.now.to_f + (i * 0.1)
-          
+
           simulate_websocket_message(order_event)
         end
 
         # Then order lifecycle should be tracked correctly
         expect(order_events.size).to eq(4)
-        
+
         statuses = order_events.map { |e| e[:status] }
         expect(statuses).to eq(%w[submitted working partially_filled filled])
-        
+
         filled_quantities = order_events.map { |e| e[:filled_quantity] }
         expect(filled_quantities).to eq([0, 0, 25, 50])
       end
@@ -246,7 +246,7 @@ RSpec.describe "Interactive Brokers WebSocket Integration", type: :feature, webs
         simulate_websocket_message(subscription_success_response.merge(subscription_id: subscription_id))
 
         # When various error conditions occur
-        
+
         # 1. Rate limiting error
         simulate_websocket_message(rate_limit_error)
         expect(websocket_client.rate_limited?).to be true
@@ -257,7 +257,7 @@ RSpec.describe "Interactive Brokers WebSocket Integration", type: :feature, webs
         expect(websocket_client.message_errors.size).to eq(1)
 
         # 3. Authentication expiration
-        auth_expired = { type: "auth_expired", message: "Token expired" }
+        auth_expired = {type: "auth_expired", message: "Token expired"}
         simulate_websocket_message(auth_expired)
         expect(websocket_client.authenticated?).to be false
 
@@ -272,7 +272,7 @@ RSpec.describe "Interactive Brokers WebSocket Integration", type: :feature, webs
         # Then system should recover gracefully
         expect(websocket_client.connected?).to be true
         expect(websocket_client.authenticated?).to be true
-        
+
         # Subscriptions should be restored
         expect(websocket_client.active_subscriptions).to include(subscription_id)
       end
@@ -333,7 +333,7 @@ RSpec.describe "Interactive Brokers WebSocket Integration", type: :feature, webs
           end
 
           # Heartbeat every minute
-          pong = { type: "pong", timestamp: Time.now.to_f + (minute * 60) }
+          pong = {type: "pong", timestamp: Time.now.to_f + (minute * 60)}
           simulate_websocket_message(pong)
         end
 
@@ -356,7 +356,7 @@ RSpec.describe "Interactive Brokers WebSocket Integration", type: :feature, webs
         simulate_websocket_message(auth_success_response)
 
         subscription_id = websocket_client.subscribe_market_data(["AAPL"], ["price"])
-        
+
         messages_processed = 0
         websocket_client.on_market_data { |_| messages_processed += 1 }
 

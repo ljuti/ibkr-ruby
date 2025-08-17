@@ -14,7 +14,7 @@ module Ibkr
     # Manages WebSocket-specific authentication using existing OAuth credentials
     # from the main IBKR client. Follows IBKR's documented WebSocket flow:
     # 1. Get session token from /tickle endpoint
-    # 2. Include OAuth token in WebSocket URL 
+    # 2. Include OAuth token in WebSocket URL
     # 3. Send session token as authentication message
     #
     # Based on IBKR WebSocket API requirements:
@@ -35,7 +35,7 @@ module Ibkr
       # @return [Boolean] True if authenticated and session token is valid
       def authenticated?
         return false unless @session_token
-        
+
         @ibkr_client.authenticated?
       end
 
@@ -49,12 +49,12 @@ module Ibkr
       # @raise [AuthenticationError] If authentication fails
       def authenticate_websocket
         ensure_main_client_authenticated!
-        
+
         # Get session information from /tickle endpoint
         get_session_token_from_tickle
-        
+
         # Return the session token as JSON string for WebSocket auth
-        { "session" => @session_token }.to_json
+        {"session" => @session_token}.to_json
       end
 
       # Get current WebSocket session token
@@ -73,7 +73,7 @@ module Ibkr
         @session_token
       end
 
-      # Get WebSocket endpoint URL 
+      # Get WebSocket endpoint URL
       # For cookie-based auth, we don't include OAuth token in URL
       #
       # @return [String] WebSocket endpoint URL
@@ -86,12 +86,12 @@ module Ibkr
       # @return [Hash] Headers to include in WebSocket connection
       def connection_headers
         ensure_main_client_authenticated!
-        
+
         # Always get fresh session token for new connections
         get_session_token_from_tickle
-        
+
         cookie_value = "api=#{@session_token}"
-        
+
         Configuration.default_headers(Ibkr::VERSION).merge(
           "Cookie" => cookie_value
         )
@@ -109,10 +109,10 @@ module Ibkr
       # @return [Integer, nil] Seconds until expiration, or nil if unknown
       def token_expires_in
         return nil unless @session_data&.dig("ssoExpires")
-        
+
         expires_at = @session_data["ssoExpires"]
         return nil unless expires_at.is_a?(Integer)
-        
+
         expires_at - Time.now.to_i
       end
 
@@ -150,29 +150,27 @@ module Ibkr
       # Makes a request to /tickle endpoint to get session information
       # and extracts the session token needed for WebSocket authentication
       def get_session_token_from_tickle
-        begin
-          # Use the existing ping method which calls /tickle
-          response = @ibkr_client.oauth_client.ping
-          
-          if response && response["session"]
-            @session_data = response
-            @session_token = response["session"]
-          else
-            raise AuthenticationError.invalid_credentials(
-              context: {
-                operation: "tickle_session_token",
-                response: response
-              }
-            )
-          end
-        rescue => e
+        # Use the existing ping method which calls /tickle
+        response = @ibkr_client.oauth_client.ping
+
+        if response && response["session"]
+          @session_data = response
+          @session_token = response["session"]
+        else
           raise AuthenticationError.invalid_credentials(
             context: {
               operation: "tickle_session_token",
-              error: e.message
+              response: response
             }
           )
         end
+      rescue => e
+        raise AuthenticationError.invalid_credentials(
+          context: {
+            operation: "tickle_session_token",
+            error: e.message
+          }
+        )
       end
 
       # Ensure the main IBKR client is authenticated
@@ -181,7 +179,7 @@ module Ibkr
       def ensure_main_client_authenticated!
         unless @ibkr_client.authenticated?
           raise AuthenticationError.not_authenticated(
-            context: { 
+            context: {
               operation: "websocket_authentication_check",
               client_state: "not_authenticated"
             }

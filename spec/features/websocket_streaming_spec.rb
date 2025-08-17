@@ -18,7 +18,7 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
 
   describe "Real-time market data streaming" do
     it_behaves_like "a real-time data subscriber"
-    
+
     context "when trader monitors stock prices" do
       it "delivers real-time price updates for subscribed symbols", :websocket_performance do
         # Given a trader wants to monitor Apple stock prices in real-time
@@ -70,7 +70,7 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
 
         # When they request data for a non-existent symbol
         subscription_id = websocket_client.subscribe_market_data(["INVALID"], ["price"])
-        
+
         error_response = subscription_error_response.merge(
           subscription_id: subscription_id,
           error: "invalid_symbol"
@@ -91,7 +91,7 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
 
         subscription_id = websocket_client.subscribe_market_data(["AAPL"], ["price"])
         confirm_subscription(websocket_client, subscription_id)
-        
+
         expect(websocket_client.active_subscriptions).to include(subscription_id)
 
         # When they decide to stop monitoring a specific symbol
@@ -106,11 +106,11 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
         # Given a trader has multiple active subscriptions
         establish_authenticated_connection(websocket_client)
 
-        subscription_ids = create_active_subscriptions(websocket_client, [
-          { type: :market_data, symbols: ["AAPL"] },
-          { type: :market_data, symbols: ["GOOGL"] }
+        create_active_subscriptions(websocket_client, [
+          {type: :market_data, symbols: ["AAPL"]},
+          {type: :market_data, symbols: ["GOOGL"]}
         ])
-        
+
         expect(websocket_client.active_subscriptions.size).to eq(2)
 
         # When they end their trading session
@@ -125,7 +125,7 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
 
   describe "Real-time portfolio monitoring" do
     it_behaves_like "a portfolio monitor"
-    
+
     context "when trader tracks portfolio performance" do
       it "delivers real-time portfolio value changes" do
         # Given a trader wants to track their portfolio performance
@@ -154,7 +154,7 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
 
         subscription_id = websocket_client.subscribe_portfolio("DU123456")
         confirm_subscription(websocket_client, subscription_id)
-        
+
         # When market movements affect their positions
         pnl_updates = []
         websocket_client.on_portfolio_update do |data|
@@ -178,7 +178,7 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
 
   describe "Real-time order management" do
     it_behaves_like "an order execution tracker"
-    
+
     context "when trader tracks order execution" do
       it "provides immediate notification of order execution" do
         # Given a trader has submitted orders to the market
@@ -187,7 +187,7 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
         # When they monitor order status changes
         subscription_id = websocket_client.subscribe_orders("DU123456")
         confirm_subscription(websocket_client, subscription_id)
-        
+
         order_updates = []
         websocket_client.on_order_update { |data| order_updates << data }
 
@@ -214,11 +214,10 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
         websocket_client.on_order_update { |data| partial_fill_updates << data }
 
         # Then they receive detailed partial fill information
-        simulate_order_update(websocket_client, 
-          order_id: "large_order_123", 
+        simulate_order_update(websocket_client,
+          order_id: "large_order_123",
           status: "partially_filled",
-          symbol: "AAPL"
-        )
+          symbol: "AAPL")
 
         expect(partial_fill_updates.first[:status]).to eq("partially_filled")
         expect(partial_fill_updates.first[:filled_quantity]).to eq(5)
@@ -242,11 +241,11 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
 
         # Then client should attempt automatic reconnection
         expect(websocket_client.reconnecting?).to be true
-        
+
         # Simulate successful reconnection
         simulate_websocket_open
         simulate_websocket_message(auth_status_message)
-        
+
         expect(websocket_client.connected?).to be true
         expect(websocket_client.reconnect_attempts).to be > 0
       end
@@ -276,7 +275,7 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
         simulate_websocket_open
         simulate_websocket_message(auth_status_message)
 
-        original_subscriptions = [
+        [
           websocket_client.subscribe_market_data(["AAPL"], ["price"]),
           websocket_client.subscribe_portfolio("DU123456")
         ]
@@ -324,8 +323,8 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
         simulate_websocket_open
         simulate_websocket_message(auth_status_message)
 
-        subscription_id = websocket_client.subscribe_market_data(["AAPL"], ["price"])
-        
+        websocket_client.subscribe_market_data(["AAPL"], ["price"])
+
         updates = []
         websocket_client.on_market_data { |data| updates << data }
 
@@ -352,8 +351,8 @@ RSpec.describe "Interactive Brokers WebSocket Streaming", type: :feature do
         simulate_websocket_open
         simulate_websocket_message(auth_status_message)
 
-        subscription_id = websocket_client.subscribe_market_data(["AAPL"], ["price"])
-        
+        websocket_client.subscribe_market_data(["AAPL"], ["price"])
+
         updates = []
         websocket_client.on_market_data { |data| updates << data }
 

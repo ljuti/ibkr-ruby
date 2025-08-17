@@ -23,33 +23,33 @@ module Ibkr
       # Standard IBKR WebSocket message types
       MESSAGE_TYPES = {
         # Authentication
-        'auth_response' => :handle_auth_response,
-        
+        "auth_response" => :handle_auth_response,
+
         # Connection management
-        'ping' => :handle_ping,
-        'pong' => :handle_pong,
-        
+        "ping" => :handle_ping,
+        "pong" => :handle_pong,
+
         # Subscription management
-        'subscription_response' => :handle_subscription_response,
-        'subscription_error' => :handle_subscription_error,
-        
+        "subscription_response" => :handle_subscription_response,
+        "subscription_error" => :handle_subscription_error,
+
         # Data streams
-        'market_data' => :handle_market_data,
-        'portfolio_update' => :handle_portfolio_update,
-        'order_update' => :handle_order_update,
-        'trade_data' => :handle_trade_data,
-        'depth_data' => :handle_depth_data,
-        
+        "market_data" => :handle_market_data,
+        "portfolio_update" => :handle_portfolio_update,
+        "order_update" => :handle_order_update,
+        "trade_data" => :handle_trade_data,
+        "depth_data" => :handle_depth_data,
+
         # Authentication status
-        'authenticated' => :handle_authentication_status,
-        'status' => :handle_authentication_status,
-        'account_info' => :handle_account_info,
-        'account_summary' => :handle_account_summary_data,
-        
+        "authenticated" => :handle_authentication_status,
+        "status" => :handle_authentication_status,
+        "account_info" => :handle_account_info,
+        "account_summary" => :handle_account_summary_data,
+
         # System messages
-        'system_message' => :handle_system_message,
-        'error' => :handle_error_message,
-        'rate_limit' => :handle_rate_limit_message
+        "system_message" => :handle_system_message,
+        "error" => :handle_error_message,
+        "rate_limit" => :handle_rate_limit_message
       }.freeze
 
       attr_reader :routing_statistics, :message_handlers
@@ -65,7 +65,7 @@ module Ibkr
           unknown_types: 0,
           processing_times: []
         }
-        
+
         initialize_events
         setup_default_handlers
       end
@@ -77,15 +77,15 @@ module Ibkr
       def route(message)
         start_time = Time.now
         @routing_statistics[:total_messages] += 1
-        
+
         begin
           validate_message!(message)
-          
+
           message_type = extract_message_type(message)
           @routing_statistics[:by_type][message_type] += 1
-          
+
           handler = find_handler(message_type)
-          
+
           if handler
             result = execute_handler(handler, message)
             record_routing_success(message_type, start_time)
@@ -117,7 +117,7 @@ module Ibkr
       def register_handler(message_type, handler = nil, &block)
         handler_proc = handler || block
         raise ArgumentError, "Handler is required" unless handler_proc
-        
+
         @message_handlers[message_type] = handler_proc
       end
 
@@ -134,14 +134,14 @@ module Ibkr
       # @return [Hash] Current routing statistics
       def statistics
         stats = @routing_statistics.dup
-        
+
         if stats[:processing_times].any?
           times = stats[:processing_times]
           stats[:average_processing_time] = times.sum / times.size
           stats[:max_processing_time] = times.max
           stats[:min_processing_time] = times.min
         end
-        
+
         stats
       end
 
@@ -177,7 +177,7 @@ module Ibkr
             "Message must be a Hash, got #{message.class}"
           )
         end
-        
+
         # Allow messages without 'type' field for IBKR system messages
         # These will be handled as 'system_message' type
         true
@@ -189,15 +189,15 @@ module Ibkr
       # @return [String] Message type
       def extract_message_type(message)
         # Handle subscription errors (messages with subscription_id and error) - prioritize over generic errors
-        if (message.key?(:subscription_id) || message.key?("subscription_id")) && 
-           (message.key?(:error) || message.key?("error"))
+        if (message.key?(:subscription_id) || message.key?("subscription_id")) &&
+            (message.key?(:error) || message.key?("error"))
           return "subscription_error"
         end
-        
+
         # Check for explicit type field
         type = message[:type] || message["type"]
         return type if type
-        
+
         # Handle IBKR topic-based messages
         if message.key?(:topic) || message.key?("topic")
           topic = message[:topic] || message["topic"]
@@ -214,12 +214,12 @@ module Ibkr
             return "topic_#{topic}"
           end
         end
-        
+
         # Handle IBKR system messages without type field
         if message.key?(:message) || message.key?("message")
           return "system_message"
         end
-        
+
         # Default fallback
         "unknown"
       end
@@ -254,7 +254,7 @@ module Ibkr
             "Invalid handler type: #{handler.class}"
           )
         end
-        
+
         true
       end
 
@@ -264,10 +264,10 @@ module Ibkr
       # @param message [Hash] Full message
       def handle_unknown_message_type(message_type, message)
         @routing_statistics[:unknown_types] += 1
-        
-        emit(:unknown_message_type, 
-             type: message_type, 
-             message: message)
+
+        emit(:unknown_message_type,
+          type: message_type,
+          message: message)
       end
 
       # Handle routing error
@@ -277,13 +277,13 @@ module Ibkr
       # @param start_time [Time] Processing start time
       def handle_routing_error(error, message, start_time)
         @routing_statistics[:routing_errors] += 1
-        
+
         message_type = begin
           extract_message_type(message)
         rescue
           "unknown"
         end
-        
+
         enhanced_error = MessageProcessingError.message_routing_failed(
           "Message routing failed: #{error.message}",
           context: {
@@ -293,7 +293,7 @@ module Ibkr
           },
           cause: error
         )
-        
+
         emit(:routing_error, error: enhanced_error, message: message)
       end
 
@@ -304,12 +304,12 @@ module Ibkr
       def record_routing_success(message_type, start_time)
         processing_time = Time.now - start_time
         @routing_statistics[:processing_times] << processing_time
-        
+
         # Keep only last N processing times for memory efficiency
         if @routing_statistics[:processing_times].size > Configuration::MAX_PROCESSING_TIMES
           @routing_statistics[:processing_times].shift(Configuration::PROCESSING_TIMES_CLEANUP_BATCH)
         end
-        
+
         emit(:message_routed, type: message_type, processing_time: processing_time)
       end
 
@@ -386,7 +386,7 @@ module Ibkr
       def handle_system_message(message)
         # Handle specific IBKR system messages
         system_msg = message[:message] || message["message"]
-        
+
         case system_msg
         when "waiting for session"
           # IBKR is waiting for the session to be ready
@@ -407,7 +407,7 @@ module Ibkr
         if message[:error]
           error_msg = "#{message[:error]}: #{error_msg}"
         end
-        
+
         error = MessageProcessingError.new(
           error_msg,
           context: {
@@ -424,30 +424,28 @@ module Ibkr
       end
 
       def handle_authentication_status(message)
-        begin
-          # Handle IBKR authentication status messages (following Python implementation pattern)
-          # IBKR sends status messages with topic "sts" and args containing authentication info
-          args = message[:args] || message["args"] || message
-          authenticated = args[:authenticated] || args["authenticated"]
-          connected = args[:connected] || args["connected"]
-          
-          if authenticated == false
-            @websocket_client.emit(:error, AuthenticationError.invalid_credentials(
-              context: { 
-                message: message,
-                operation: "websocket_authentication_status"
-              }
-            ))
-          elsif authenticated == true && connected == true
-            # Set the connection as authenticated
-            @websocket_client.connection_manager.set_authenticated!
-            @websocket_client.emit(:authenticated)
-          else
-            @websocket_client.emit(:system_message, message)
-          end
-        rescue => e
+        # Handle IBKR authentication status messages (following Python implementation pattern)
+        # IBKR sends status messages with topic "sts" and args containing authentication info
+        args = message[:args] || message["args"] || message
+        authenticated = args[:authenticated] || args["authenticated"]
+        connected = args[:connected] || args["connected"]
+
+        if authenticated == false
+          @websocket_client.emit(:error, AuthenticationError.invalid_credentials(
+            context: {
+              message: message,
+              operation: "websocket_authentication_status"
+            }
+          ))
+        elsif authenticated == true && connected == true
+          # Set the connection as authenticated
+          @websocket_client.connection_manager.set_authenticated!
+          @websocket_client.emit(:authenticated)
+        else
           @websocket_client.emit(:system_message, message)
         end
+      rescue
+        @websocket_client.emit(:system_message, message)
       end
 
       def handle_account_info(message)

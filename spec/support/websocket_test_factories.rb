@@ -6,14 +6,14 @@ module WebSocketTestFactories
     client = Ibkr::Client.new(default_account_id: account_id, live: live)
     allow(client).to receive(:oauth_client).and_return(oauth_client) if defined?(oauth_client)
     allow(client).to receive(:authenticated?).and_return(authenticated)
-    
+
     websocket = client.websocket
     if authenticated
       websocket.connect
       simulate_websocket_open
       simulate_websocket_message(auth_status_message)
     end
-    
+
     websocket
   end
 
@@ -26,15 +26,14 @@ module WebSocketTestFactories
     max_orders: 10,
     rate_limit: 60
   )
-    client = websocket_client || double("websocket_client", 
-      send_message: true, 
-      authenticated?: true, 
+    client = websocket_client || double("websocket_client",
+      send_message: true,
+      authenticated?: true,
       emit: true,
-      account_id: "DU123456"
-    )
-    
+      account_id: "DU123456")
+
     manager = Ibkr::WebSocket::SubscriptionManager.new(client)
-    
+
     # Use a configuration method if available, otherwise fall back to test doubles
     if manager.respond_to?(:configure_for_testing)
       manager.configure_for_testing(
@@ -56,7 +55,7 @@ module WebSocketTestFactories
       })
       allow(manager).to receive(:subscription_rate_limit).and_return(rate_limit)
     end
-    
+
     manager
   end
 
@@ -66,7 +65,7 @@ module WebSocketTestFactories
       type: "subscription_response",
       subscription_id: subscription_id,
       status: status,
-      message: status == "success" ? "Subscription confirmed" : "Subscription failed"
+      message: (status == "success") ? "Subscription confirmed" : "Subscription failed"
     })
   end
 
@@ -100,8 +99,8 @@ module WebSocketTestFactories
         side: "buy",
         quantity: 10,
         fill_price: 150.25,
-        filled_quantity: status == "filled" ? 10 : 5,
-        remaining_quantity: status == "filled" ? 0 : 5
+        filled_quantity: (status == "filled") ? 10 : 5,
+        remaining_quantity: (status == "filled") ? 0 : 5
       }
     }
     simulate_websocket_message(message)
@@ -117,8 +116,8 @@ module WebSocketTestFactories
         total_value: total_value,
         cash_balance: 25000.00,
         positions: [
-          { symbol: "AAPL", quantity: 100, value: 15025.00, unrealized_pnl: 215.00 },
-          { symbol: "GOOGL", quantity: 50, value: 60000.00, unrealized_pnl: -125.00 }
+          {symbol: "AAPL", quantity: 100, value: 15025.00, unrealized_pnl: 215.00},
+          {symbol: "GOOGL", quantity: 50, value: 60000.00, unrealized_pnl: -125.00}
         ]
       }
     }
@@ -136,7 +135,7 @@ module WebSocketTestFactories
   # Helper to create active subscriptions
   def create_active_subscriptions(websocket_client, subscriptions = [])
     subscription_ids = []
-    
+
     subscriptions.each do |sub|
       case sub[:type]
       when :market_data
@@ -148,11 +147,11 @@ module WebSocketTestFactories
       else
         raise ArgumentError, "Unknown subscription type: #{sub[:type]}"
       end
-      
+
       subscription_ids << id
       confirm_subscription(websocket_client, id)
     end
-    
+
     subscription_ids
   end
 

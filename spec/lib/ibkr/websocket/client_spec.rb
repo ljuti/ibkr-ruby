@@ -14,9 +14,9 @@ RSpec.describe Ibkr::WebSocket::Client, websocket: true do
     client
   end
   let(:websocket_client) { client.websocket }
-  
+
   subject { websocket_client }
-  
+
   # Authentication response for failed authentication
   let(:auth_failure_response) do
     {
@@ -29,7 +29,7 @@ RSpec.describe Ibkr::WebSocket::Client, websocket: true do
       }
     }
   end
-  
+
   subject { websocket_client }
 
   describe "creating a trading WebSocket connection" do
@@ -102,7 +102,7 @@ RSpec.describe Ibkr::WebSocket::Client, websocket: true do
 
         # When connection timeout occurs
         allow(Time).to receive(:now).and_return(Time.now + 15)
-        
+
         # Then connection should timeout
         expect(websocket_client.connection_state).to eq(:connection_timeout)
         expect(websocket_client.last_error).to include("timeout")
@@ -231,8 +231,8 @@ RSpec.describe Ibkr::WebSocket::Client, websocket: true do
         websocket_client.connect
         simulate_websocket_open
         simulate_websocket_message(auth_status_message)
-        
-        session_expired = { type: "auth_expired" }
+
+        session_expired = {type: "auth_expired"}
         simulate_websocket_message(session_expired)
 
         # When fresh token is available
@@ -244,7 +244,7 @@ RSpec.describe Ibkr::WebSocket::Client, websocket: true do
 
         # Then reauthentication should be attempted
         websocket_client.reauthenticate
-        
+
         # Check that a message was sent (simplified to avoid JSON parsing issues)
         expect(mock_websocket).to have_received(:send).at_least(:once)
       end
@@ -252,7 +252,7 @@ RSpec.describe Ibkr::WebSocket::Client, websocket: true do
   end
 
   describe "message handling" do
-    let(:valid_message) { { type: "market_data", data: { symbol: "AAPL", price: 150.0 } } }
+    let(:valid_message) { {type: "market_data", data: {symbol: "AAPL", price: 150.0}} }
 
     context "when processing incoming messages" do
       it "routes messages to appropriate handlers" do
@@ -351,7 +351,7 @@ RSpec.describe Ibkr::WebSocket::Client, websocket: true do
         simulate_websocket_message(auth_status_message)
 
         # When pong response is received
-        pong_response = { type: "pong", timestamp: Time.now.to_f }
+        pong_response = {type: "pong", timestamp: Time.now.to_f}
         simulate_websocket_message(pong_response)
 
         # Then heartbeat should be acknowledged
@@ -363,10 +363,10 @@ RSpec.describe Ibkr::WebSocket::Client, websocket: true do
         # TODO: Fix connection health detection logic
         # Given an established trading connection
         establish_authenticated_connection(websocket_client)
-        
+
         # When the connection stops responding (simulate stale heartbeat)
         allow(Time).to receive(:now).and_return(Time.now + 120)
-        
+
         # Then the client should detect the unhealthy connection
         expect(websocket_client.connection_healthy?).to be false
       end

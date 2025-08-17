@@ -16,7 +16,7 @@ module Ibkr
       # Generate WebSocket-specific error suggestions
       def generate_suggestions
         suggestions = super
-        
+
         case self.class.name
         when /Connection/
           suggestions.concat([
@@ -28,7 +28,7 @@ module Ibkr
         when /Subscription/
           suggestions.concat([
             "Check subscription limits for your account type",
-            "Verify symbol formats and availability", 
+            "Verify symbol formats and availability",
             "Reduce subscription frequency if rate limited",
             "Use unsubscribe before resubscribing to same data"
           ])
@@ -40,7 +40,7 @@ module Ibkr
             "Try re-authenticating the main client first"
           ])
         end
-        
+
         suggestions.uniq
       end
     end
@@ -62,7 +62,7 @@ module Ibkr
         new(
           message,
           context: context.merge(
-            operation: "websocket_authentication", 
+            operation: "websocket_authentication",
             category: "authentication"
           ),
           cause: cause

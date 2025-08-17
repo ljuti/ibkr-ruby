@@ -10,11 +10,11 @@ module Ibkr
     # @example Including in a class
     #   class MyWebSocketClient
     #     include Ibkr::WebSocket::EventEmitter
-    #     
+    #
     #     def initialize
     #       initialize_events
     #     end
-    #     
+    #
     #     def process_message(data)
     #       emit(:message_received, data)
     #     end
@@ -53,7 +53,7 @@ module Ibkr
       # @return [void]
       def initialize_events
         @event_handlers = Hash.new { |h, k| h[k] = [] }
-        @event_stats = Hash.new { |h, k| h[k] = { emitted: 0, handlers: 0 } }
+        @event_stats = Hash.new { |h, k| h[k] = {emitted: 0, handlers: 0} }
       end
 
       # Register an event handler for a specific event type
@@ -118,12 +118,10 @@ module Ibkr
         successful_calls = 0
 
         handlers.each do |handler|
-          begin
-            handler.call(*args)
-            successful_calls += 1
-          rescue => e
-            handle_event_error(event, e, handler, *args)
-          end
+          handler.call(*args)
+          successful_calls += 1
+        rescue => e
+          handle_event_error(event, e, handler, *args)
         end
 
         successful_calls
@@ -162,7 +160,7 @@ module Ibkr
       # @param args [Array] Arguments that were passed to the handler
       def handle_event_error(event, error, handler, *args)
         enhanced_error = create_event_error(event, error, handler, args)
-        
+
         # Try to emit error event, but don't create infinite recursion
         if event != :error && has_listeners?(:error)
           emit(:error, enhanced_error)

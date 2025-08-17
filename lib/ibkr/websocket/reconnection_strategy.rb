@@ -19,13 +19,13 @@ module Ibkr
     class ReconnectionStrategy
       include Ibkr::WebSocket::EventEmitter
 
-      defines_events :reconnection_scheduled, :reconnection_attempted, 
-                     :reconnection_succeeded, :reconnection_failed, :max_attempts_reached
+      defines_events :reconnection_scheduled, :reconnection_attempted,
+        :reconnection_succeeded, :reconnection_failed, :max_attempts_reached
 
       # WebSocket close codes that should trigger automatic reconnection
       RECONNECTABLE_CODES = [
         1006, # Abnormal closure
-        1011, # Server error  
+        1011, # Server error
         1012, # Service restart
         1013, # Try again later
         1014  # Bad gateway
@@ -44,8 +44,8 @@ module Ibkr
       ].freeze
 
       attr_reader :max_attempts, :base_delay, :max_delay, :backoff_multiplier,
-                  :reconnect_attempts, :last_attempt_at, :last_successful_connection_at,
-                  :last_failure_reason, :automatic_reconnection_enabled
+        :reconnect_attempts, :last_attempt_at, :last_successful_connection_at,
+        :last_failure_reason, :automatic_reconnection_enabled
 
       # @param websocket_client [Ibkr::WebSocket::Client] WebSocket client to reconnect
       # @param config [Hash] Configuration options
@@ -61,9 +61,9 @@ module Ibkr
         @max_delay = config.fetch(:max_delay, 300.0)
         @backoff_multiplier = config.fetch(:backoff_multiplier, 2.0)
         @jitter_enabled = config.fetch(:jitter, true)
-        
+
         validate_configuration!
-        
+
         @reconnect_attempts = 0
         @last_attempt_at = nil
         @last_successful_connection_at = nil
@@ -75,7 +75,7 @@ module Ibkr
           successful_reconnections: 0,
           failed_attempts: 0
         }
-        
+
         initialize_events
       end
 
@@ -99,26 +99,26 @@ module Ibkr
       # @return [Float] Delay in seconds
       def next_reconnect_delay(attempt)
         # Exponential backoff: base_delay * (backoff_multiplier ^ (attempt - 1))
-        delay = @base_delay * (@backoff_multiplier ** (attempt - 1))
-        
+        delay = @base_delay * (@backoff_multiplier**(attempt - 1))
+
         # Cap at maximum delay
         delay = [@max_delay, delay].min
-        
+
         # Apply jitter if enabled
         if @jitter_enabled
           # Add ±25% jitter
           jitter_range = delay * 0.25
           jitter = (rand * 2 - 1) * jitter_range
           delay += jitter
-          
+
           # Re-apply maximum delay cap after jitter
           delay = [@max_delay, delay].min
         end
-        
+
         # Ensure minimum delay
         [delay, 0.1].max
       end
-      
+
       # Alias for compatibility with shared examples
       alias_method :max_reconnect_delay, :max_delay
 
@@ -140,12 +140,12 @@ module Ibkr
         @reconnect_attempts += 1
         @last_attempt_at = Time.now
         @statistics[:total_attempts] += 1
-        
+
         emit(:reconnection_attempted, attempt: @reconnect_attempts)
-        
+
         begin
           @websocket_client.connect
-          
+
           # Verify connection succeeded
           if @websocket_client.connected?
             handle_successful_reconnection
@@ -158,7 +158,7 @@ module Ibkr
           handle_failed_reconnection(e.message)
           raise ReconnectionError.new(
             "Reconnection attempt #{@reconnect_attempts} failed: #{e.message}",
-            context: { 
+            context: {
               attempt: @reconnect_attempts,
               max_attempts: @max_attempts
             },
@@ -175,15 +175,15 @@ module Ibkr
         return false unless can_reconnect?
 
         delay = next_reconnect_delay(@reconnect_attempts + 1)
-        
+
         @scheduled_timer = EventMachine.add_timer(delay) do
           @scheduled_timer = nil
-          
+
           begin
             attempt_reconnect
           rescue ReconnectionError => e
             emit(:reconnection_failed, error: e, final: !can_reconnect?)
-            
+
             # Schedule next attempt if possible
             if can_reconnect?
               schedule_reconnection
@@ -193,7 +193,7 @@ module Ibkr
             end
           end
         end
-        
+
         emit(:reconnection_scheduled, delay: delay, attempt: @reconnect_attempts + 1)
         true
       end
@@ -272,7 +272,7 @@ module Ibkr
         return true if code.nil? # Unknown close reason, assume reconnectable
         return true if RECONNECTABLE_CODES.include?(code)
         return false if NON_RECONNECTABLE_CODES.include?(code)
-        
+
         # For unknown codes, default to reconnectable
         true
       end
@@ -287,7 +287,7 @@ module Ibkr
         if guidance[:retry_after]
           @base_delay = [guidance[:retry_after], @base_delay].max
         end
-        
+
         if guidance[:max_attempts]
           @max_attempts = guidance[:max_attempts]
         end
@@ -299,11 +299,11 @@ module Ibkr
       def handle_successful_reconnection
         @last_successful_connection_at = Time.now
         @statistics[:successful_reconnections] += 1
-        
+
         reset_reconnect_attempts
-        emit(:reconnection_succeeded, 
-             attempts: @statistics[:total_attempts],
-             success_time: @last_successful_connection_at)
+        emit(:reconnection_succeeded,
+          attempts: @statistics[:total_attempts],
+          success_time: @last_successful_connection_at)
       end
 
       # Get time since last reconnection attempt
@@ -321,14 +321,14 @@ module Ibkr
         total = @statistics[:total_attempts]
         successful = @statistics[:successful_reconnections]
         failed = @statistics[:failed_attempts]
-        
+
         {
           total_attempts: total,
           successful_reconnections: successful,
           failed_attempts: failed,
-          success_rate: total > 0 ? successful.to_f / total : 0.0,
-          failure_rate: total > 0 ? failed.to_f / total : 0.0,
-          average_attempts_to_success: successful > 0 ? total.to_f / successful : 0.0,
+          success_rate: (total > 0) ? successful.to_f / total : 0.0,
+          failure_rate: (total > 0) ? failed.to_f / total : 0.0,
+          average_attempts_to_success: (successful > 0) ? total.to_f / successful : 0.0,
           current_streak: @reconnect_attempts,
           last_success: @last_successful_connection_at,
           last_failure_reason: @last_failure_reason
@@ -362,11 +362,11 @@ module Ibkr
       def handle_failed_reconnection(reason)
         @last_failure_reason = reason
         @statistics[:failed_attempts] += 1
-        
-        emit(:reconnection_failed, 
-             attempt: @reconnect_attempts,
-             reason: reason,
-             final: !can_reconnect?)
+
+        emit(:reconnection_failed,
+          attempt: @reconnect_attempts,
+          reason: reason,
+          final: !can_reconnect?)
       end
     end
   end

@@ -226,8 +226,7 @@ RSpec.shared_context "with authenticated oauth client" do
       authenticated?: true,
       sandbox?: true,
       production?: false,
-      ping: {"session" => "cb0f2f5202aab5d3ca020c118356f315"}
-    )
+      ping: {"session" => "cb0f2f5202aab5d3ca020c118356f315"})
     client_double
   end
 end
@@ -235,16 +234,20 @@ end
 RSpec.shared_context "with WebSocket test environment" do
   include_context "with mocked EventMachine"
   include_context "with WebSocket performance monitoring"
-  
+
   before do
     # Ensure WebSocket tests don't interfere with each other
     allow(Faye::WebSocket::Client).to receive(:new).and_call_original
   end
-  
+
   after do
     # Clean up any lingering connections
     if defined?(@websocket_client) && @websocket_client
-      @websocket_client.disconnect rescue nil
+      begin
+        @websocket_client.disconnect
+      rescue
+        nil
+      end
     end
   end
 end

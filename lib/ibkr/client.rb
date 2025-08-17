@@ -151,7 +151,7 @@ module Ibkr
     def account_id
       @active_account_id
     end
-    
+
     # Check if client is in live mode
     def live_mode?
       @live
@@ -231,7 +231,7 @@ module Ibkr
     end
 
     # WebSocket accessor (lazy-loaded)
-    # 
+    #
     # Provides real-time streaming capabilities for market data, portfolio updates,
     # and order status. The WebSocket client is created on first access and
     # integrates with the existing authentication system.
@@ -252,12 +252,12 @@ module Ibkr
     def websocket
       @websocket ||= WebSocket::Client.new(self)
     end
-    
+
     # Streaming interface for WebSocket operations
     def streaming
       @streaming ||= WebSocket::Streaming.new(websocket)
     end
-    
+
     # Market data interface for real-time data
     def real_time_data
       @real_time_data ||= WebSocket::MarketData.new(websocket)

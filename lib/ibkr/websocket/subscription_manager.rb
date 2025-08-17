@@ -21,7 +21,7 @@ module Ibkr
       include Ibkr::WebSocket::EventEmitter
 
       defines_events :subscription_created, :subscription_confirmed, :subscription_failed,
-                     :subscription_removed, :rate_limit_hit
+        :subscription_removed, :rate_limit_hit
 
       # Default subscription limits
       DEFAULT_LIMITS = Configuration::DEFAULT_SUBSCRIPTION_LIMITS
@@ -29,7 +29,7 @@ module Ibkr
       # Default rate limits (requests per minute)
       DEFAULT_RATE_LIMIT = Configuration::DEFAULT_RATE_LIMIT
 
-      attr_reader :subscriptions, :subscription_count, :rate_limited_until
+      attr_reader :subscriptions, :rate_limited_until
 
       # @param websocket_client [Ibkr::WebSocket::Client] Parent WebSocket client
       def initialize(websocket_client)
@@ -41,7 +41,7 @@ module Ibkr
         @rate_limit = DEFAULT_RATE_LIMIT
         @rate_limited_until = nil
         @rate_limit_requests = []
-        
+
         initialize_events
       end
 
@@ -58,20 +58,20 @@ module Ibkr
         validate_subscription_request!(request)
         check_rate_limit!
         check_subscription_limits!(request[:channel])
-        
+
         # Check for duplicate subscription
         existing_id = find_duplicate_subscription(request)
         return existing_id if existing_id
-        
+
         subscription_id = generate_subscription_id
         subscription = create_subscription_record(subscription_id, request)
-        
+
         @subscriptions[subscription_id] = subscription
         record_rate_limit_request
-        
+
         send_subscription_message(subscription)
         emit(:subscription_created, subscription_id: subscription_id, request: request)
-        
+
         subscription_id
       end
 
@@ -85,7 +85,7 @@ module Ibkr
 
         send_unsubscription_message(subscription_id, subscription)
         emit(:subscription_removed, subscription_id: subscription_id)
-        
+
         true
       end
 
@@ -94,7 +94,7 @@ module Ibkr
       # @return [Integer] Number of subscriptions removed
       def unsubscribe_all(send_messages: true)
         count = @subscriptions.size
-        
+
         if send_messages
           @subscriptions.keys.each do |subscription_id|
             unsubscribe(subscription_id)
@@ -106,7 +106,7 @@ module Ibkr
           end
           @subscriptions.clear
         end
-        
+
         count
       end
 
@@ -145,7 +145,7 @@ module Ibkr
       # @param symbol [String] Symbol name
       # @return [Array<String>] Subscription IDs that include the symbol
       def subscriptions_for_symbol(symbol)
-        @subscriptions.select do |_, sub| 
+        @subscriptions.select do |_, sub|
           sub[:symbols]&.include?(symbol)
         end.keys
       end
@@ -169,7 +169,7 @@ module Ibkr
       def handle_subscription_response(response)
         subscription_id = response[:subscription_id]
         subscription = @subscriptions[subscription_id]
-        
+
         return unless subscription
 
         case response[:status]
@@ -180,19 +180,18 @@ module Ibkr
         end
       end
 
-
       # Get subscription statistics
       #
       # @return [Hash] Statistics about current subscriptions
       def subscription_statistics
         by_channel = Hash.new(0)
         by_status = Hash.new(0)
-        
+
         @subscriptions.each do |_, sub|
           by_channel[sub[:channel]] += 1
           by_status[sub[:status]] += 1
         end
-        
+
         {
           total: @subscriptions.size,
           by_channel: by_channel,
@@ -208,7 +207,7 @@ module Ibkr
       # @return [Hash] Recovery state containing active subscriptions
       def get_recovery_state
         active_subs = @subscriptions.select { |_, sub| sub[:status] == :active }
-        
+
         {
           subscriptions: active_subs.map do |id, sub|
             {
@@ -227,34 +226,32 @@ module Ibkr
       def restore_from_recovery_state(recovery_state)
         restored = 0
         failed = 0
-        
+
         recovery_state[:subscriptions]&.each do |sub_data|
-          begin
-            request = {
-              channel: sub_data[:channel],
-              **sub_data[:parameters]
-            }
-            
-            # Validate the request (same validation as subscribe method)
-            validate_subscription_request!(request)
-            
-            # Use existing subscription ID if provided
-            subscription_id = sub_data[:subscription_id] || generate_subscription_id
-            subscription = create_subscription_record(subscription_id, request)
-            
-            @subscriptions[subscription_id] = subscription
-            send_subscription_message(subscription)
-            
-            restored += 1
-          rescue => e
-            failed += 1
-            emit(:subscription_failed, 
-                 subscription_id: sub_data[:subscription_id],
-                 error: e.message)
-          end
+          request = {
+            channel: sub_data[:channel],
+            **sub_data[:parameters]
+          }
+
+          # Validate the request (same validation as subscribe method)
+          validate_subscription_request!(request)
+
+          # Use existing subscription ID if provided
+          subscription_id = sub_data[:subscription_id] || generate_subscription_id
+          subscription = create_subscription_record(subscription_id, request)
+
+          @subscriptions[subscription_id] = subscription
+          send_subscription_message(subscription)
+
+          restored += 1
+        rescue => e
+          failed += 1
+          emit(:subscription_failed,
+            subscription_id: sub_data[:subscription_id],
+            error: e.message)
         end
-        
-        { restored: restored, failed: failed }
+
+        {restored: restored, failed: failed}
       end
 
       # Get subscription errors
@@ -271,7 +268,7 @@ module Ibkr
       def last_subscription_error(subscription_id)
         subscription = @subscriptions[subscription_id]
         return nil unless subscription && subscription[:status] == :error
-        
+
         {
           error: subscription[:error],
           message: subscription[:error_message],
@@ -291,7 +288,7 @@ module Ibkr
       #
       # @return [Hash] Channel-specific subscription limits
       def max_subscriptions_per_channel
-        @subscription_limits.reject { |k, _| k == :total }
+        @subscription_limits.except(:total)
       end
 
       # Get subscription rate limit
@@ -367,9 +364,9 @@ module Ibkr
       def find_duplicate_subscription(request)
         @subscriptions.find do |_, sub|
           sub[:channel] == request[:channel] &&
-          sub[:symbols] == request[:symbols] &&
-          sub[:fields] == request[:fields] &&
-          sub[:account_id] == request[:account_id]
+            sub[:symbols] == request[:symbols] &&
+            sub[:fields] == request[:fields] &&
+            sub[:account_id] == request[:account_id]
         end&.first
       end
 
@@ -379,13 +376,13 @@ module Ibkr
       # @raise [ArgumentError] If request is invalid
       def validate_subscription_request!(request)
         raise ArgumentError, "Channel is required" unless request[:channel]
-        
+
         # Validate known channels
         valid_channels = ["market_data", "portfolio", "orders", "account_summary"]
         unless valid_channels.include?(request[:channel])
           raise ArgumentError, "Unknown channel: #{request[:channel]}"
         end
-        
+
         case request[:channel]
         when "market_data"
           raise ArgumentError, "Symbols required for market_data" unless request[:symbols]&.any?
@@ -406,10 +403,10 @@ module Ibkr
             }
           )
         end
-        
+
         # Check request rate (requests per minute)
         recent_requests = @rate_limit_requests.select { |t| t > Time.now - 60 }
-        
+
         if recent_requests.size >= @rate_limit
           raise SubscriptionError.rate_limited(
             context: {
@@ -435,11 +432,11 @@ module Ibkr
             }
           )
         end
-        
+
         # Check channel-specific limit
         channel_count = subscriptions_for_channel(channel).size
         channel_limit = @subscription_limits[channel.to_sym]
-        
+
         if channel_limit && channel_count >= channel_limit
           raise SubscriptionError.limit_exceeded(
             channel,
@@ -469,10 +466,10 @@ module Ibkr
             keys: subscription[:keys] || Configuration::DEFAULT_ACCOUNT_SUMMARY_KEYS,
             fields: subscription[:fields] || Configuration::DEFAULT_ACCOUNT_SUMMARY_FIELDS
           }
-          
+
           ibkr_message = Configuration::ACCOUNT_SUMMARY_SUBSCRIBE_FORMAT % [subscription[:account_id], params.to_json]
           @websocket_client.connection_manager.send_raw_message(ibkr_message)
-          
+
         when "market_data"
           # Standard market data subscription format (to be implemented)
           message = {
@@ -483,7 +480,7 @@ module Ibkr
             fields: subscription[:fields]
           }
           @websocket_client.send_message(message)
-          
+
         else
           # Standard subscription format
           message = {
@@ -491,13 +488,13 @@ module Ibkr
             subscription_id: subscription[:id],
             channel: subscription[:channel]
           }
-          
+
           # Add channel-specific parameters
           case subscription[:channel]
           when "portfolio", "orders"
             message[:account_id] = subscription[:account_id]
           end
-          
+
           @websocket_client.send_message(message)
         end
       end
@@ -511,14 +508,14 @@ module Ibkr
           # IBKR account summary unsubscription format: usd+{accountId}
           ibkr_message = Configuration::ACCOUNT_SUMMARY_UNSUBSCRIBE_FORMAT % subscription[:account_id]
           @websocket_client.connection_manager.send_raw_message(ibkr_message)
-          
+
         else
           # Standard unsubscription format for other channels
           message = {
             type: "unsubscribe",
             subscription_id: subscription_id
           }
-          
+
           @websocket_client.send_message(message)
         end
       end
@@ -534,7 +531,7 @@ module Ibkr
         subscription[:status] = :active
         subscription[:confirmed_at] = Time.now
         subscription[:confirmation_latency] = Time.now - subscription[:created_at]
-        
+
         emit(:subscription_confirmed, subscription_id: subscription_id)
       end
 
@@ -549,12 +546,12 @@ module Ibkr
         subscription[:status] = :error
         subscription[:error] = response[:error]
         subscription[:error_message] = response[:message]
-        
+
         # Handle rate limiting
         if response[:error] == "rate_limit_exceeded" && response[:retry_after]
           @rate_limited_until = Time.now + response[:retry_after]
           emit(:rate_limit_hit, retry_after: response[:retry_after])
-          
+
           # Also emit as general error for client error tracking
           error_message = "#{response[:error]}: #{response[:message]}"
           error = SubscriptionError.new(
@@ -567,11 +564,11 @@ module Ibkr
           )
           @websocket_client.emit(:error, error)
         end
-        
-        emit(:subscription_failed, 
-             subscription_id: subscription_id,
-             error: response[:error],
-             message: response[:message])
+
+        emit(:subscription_failed,
+          subscription_id: subscription_id,
+          error: response[:error],
+          message: response[:message])
       end
 
       # Build subscription parameters for recovery
@@ -580,14 +577,13 @@ module Ibkr
       # @return [Hash] Parameters for recreating subscription
       def build_subscription_parameters(subscription)
         params = {}
-        
+
         params[:symbols] = subscription[:symbols] if subscription[:symbols]
         params[:fields] = subscription[:fields] if subscription[:fields]
         params[:account_id] = subscription[:account_id] if subscription[:account_id]
-        
+
         params
       end
-
     end
   end
 end
