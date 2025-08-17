@@ -4,9 +4,45 @@ require_relative "oauth"
 require_relative "services/accounts"
 
 module Ibkr
+  # Main client for Interactive Brokers Web API access.
+  #
+  # Supports both single and multi-account workflows through a hybrid approach:
+  # - Single Account: Specify default_account_id at initialization
+  # - Multi-Account: Don't specify default_account_id, switch accounts after authentication
+  #
+  # @example Single Account Workflow (Recommended)
+  #   client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
+  #   client.authenticate  # Active account automatically set to DU123456
+  #   summary = client.accounts.summary
+  #
+  # @example Multi-Account Workflow
+  #   client = Ibkr::Client.new(live: false)
+  #   client.authenticate  # Active account set to first available
+  #   client.set_active_account("DU789012")  # Switch to different account
+  #   summary = client.accounts.summary  # Uses DU789012
+  #
+  # @example Account Management
+  #   puts "Available: #{client.available_accounts}"
+  #   puts "Active: #{client.account_id}"
+  #   client.set_active_account("DU555555")  # Switch accounts
+  #
   class Client
     attr_reader :config, :active_account_id, :available_accounts
 
+    # Initialize a new IBKR client.
+    #
+    # @param default_account_id [String, nil] Account ID to use by default after authentication.
+    #   If provided, this account will be automatically set as active after successful authentication.
+    #   If nil, the first available account will be used.
+    # @param config [Ibkr::Configuration, nil] Custom configuration object. Uses global config if nil.
+    # @param live [Boolean] Whether to use production (true) or sandbox (false) environment.
+    #
+    # @example Single account setup
+    #   client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
+    #
+    # @example Multi-account setup
+    #   client = Ibkr::Client.new(live: false)  # Will use first available account
+    #
     def initialize(default_account_id: nil, config: nil, live: false)
       @default_account_id = default_account_id&.freeze
       @active_account_id = nil
@@ -21,7 +57,20 @@ module Ibkr
       @services = {}
     end
 
-    # Authentication methods
+    # Authenticate with IBKR and set up account access.
+    #
+    # This method performs OAuth authentication and automatically sets up account access:
+    # 1. Performs OAuth authentication with IBKR
+    # 2. Fetches list of available accounts
+    # 3. Sets active account to default_account_id (if provided) or first available account
+    #
+    # @return [Boolean] true if authentication succeeded, false otherwise
+    #
+    # @example
+    #   client = Ibkr::Client.new(default_account_id: "DU123456")
+    #   success = client.authenticate
+    #   puts "Active account: #{client.account_id}" if success
+    #
     def authenticate
       # 1. Perform OAuth authentication
       result = oauth_client.authenticate
@@ -59,7 +108,20 @@ module Ibkr
       oauth_client.ping
     end
 
-    # Multi-account management
+    # Switch to a different account.
+    #
+    # Changes the active account for all subsequent API operations. The account
+    # must be in the list of available accounts (accessible via available_accounts).
+    # This clears the service cache to ensure clean state for the new account.
+    #
+    # @param account_id [String] The account ID to switch to
+    # @raise [ArgumentError] if the account is not available
+    # @raise [StandardError] if not authenticated
+    #
+    # @example
+    #   client.set_active_account("DU789012")
+    #   puts "Now using: #{client.account_id}"
+    #
     def set_active_account(account_id)
       ensure_authenticated!
       unless @available_accounts.include?(account_id)
@@ -71,12 +133,22 @@ module Ibkr
       @services.clear
     end
     
-    # Legacy alias for backwards compatibility
+    # Get the currently active account ID.
+    #
+    # @return [String, nil] The active account ID, or nil if not authenticated
+    #
+    # @example
+    #   puts "Current account: #{client.account_id}"
+    #
     def account_id
       @active_account_id
     end
     
-    # Legacy method for backwards compatibility (with validation)
+    # Legacy method for setting account ID (deprecated).
+    #
+    # @deprecated Use {#set_active_account} instead
+    # @param account_id [String] The account ID to switch to
+    #
     def set_account_id(account_id)
       set_active_account(account_id)
     end

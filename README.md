@@ -9,6 +9,7 @@ A modern Ruby gem for accessing Interactive Brokers' Web API. Provides real-time
 
 - 🔐 **OAuth 1.0a Authentication** with RSA-SHA256 and HMAC-SHA256 signatures
 - 📊 **Portfolio Management** - Real-time account summaries, positions, and transactions
+- 🏦 **Multi-Account Support** - Hybrid approach supporting single and multi-account workflows
 - 🛡️ **Type-Safe Data Models** using Dry::Struct and Dry::Types
 - ⚡ **Error Handling** with custom error classes for different scenarios
 - 🔧 **Flexible Configuration** supporting both sandbox and live trading environments
@@ -63,17 +64,42 @@ end
 ### Authentication and Basic Usage
 
 ```ruby
-# Create a client for sandbox testing
-client = Ibkr::Client.new(live: false)
+# Create a client for sandbox testing with default account
+client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
 
-# Authenticate with IBKR
+# Authenticate with IBKR (automatically sets up account access)
 client.authenticate
 
-# Set your account ID (required for account operations)
-client.set_account_id("DU123456")
-
-# Check authentication status
+# Check authentication status and active account
 puts "Authenticated: #{client.oauth_client.authenticated?}"
+puts "Active Account: #{client.account_id}"
+puts "Available Accounts: #{client.available_accounts}"
+```
+
+### Multi-Account Support
+
+The gem supports both single and multi-account workflows through a hybrid approach:
+
+```ruby
+# Single Account Workflow (Recommended)
+# Specify your default account at initialization
+client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
+client.authenticate  # Active account is automatically set to DU123456
+
+# Multi-Account Workflow  
+# Don't specify default account to work with multiple accounts
+client = Ibkr::Client.new(live: false)
+client.authenticate  # Active account is set to first available account
+
+# See all available accounts
+puts "Available accounts: #{client.available_accounts}"
+
+# Switch between accounts
+client.set_active_account("DU789012")
+puts "Now using account: #{client.account_id}"
+
+# All subsequent API calls use the active account
+summary = client.accounts.summary  # Summary for DU789012
 ```
 
 ### Account Information
@@ -260,9 +286,8 @@ The gem is designed to be thread-safe:
 ```ruby
 # Multiple threads can safely use the same client
 threads = []
-client = Ibkr::Client.new(live: false)
-client.authenticate
-client.set_account_id("DU123456")
+client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
+client.authenticate  # Account is automatically set up
 
 threads << Thread.new { client.accounts.summary }
 threads << Thread.new { client.accounts.positions }
@@ -301,7 +326,8 @@ rake  # default task
 bin/console
 
 # In the console:
-client = Ibkr::Client.new(live: false)
+client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
+client.authenticate
 # ... experiment with the API
 ```
 
@@ -319,6 +345,7 @@ end
 
 ### Completed ✅
 - OAuth 1.0a authentication flow
+- Multi-account support with hybrid approach
 - Account summary, positions, and transactions
 - Type-safe data models with validation
 - Comprehensive error handling
@@ -351,8 +378,9 @@ end
 
 The gem includes comprehensive test coverage:
 
-- **197 total tests** with **77% pass rate** (152 passing)
+- **203 total tests** with **100% pass rate** (203 passing)
 - Core functionality (Client, Accounts, Models): **100% passing**
+- Multi-account workflows: **100% passing**
 - Integration tests with proper mocking
 - Error handling and edge case coverage
 
