@@ -27,6 +27,7 @@ module Ibkr
       super
 
       self.environment ||= "sandbox"
+      initialize_repository_defaults
       self.timeout ||= 30
       self.retries ||= 3
       self.logger_level ||= "info"
@@ -85,6 +86,21 @@ module Ibkr
       @encryption_key = nil
       @signature_key = nil
       @dh_params = nil
+    end
+
+    # Repository configuration
+    attr_accessor :repository_type
+    attr_accessor :cache_ttl
+
+    def initialize_repository_defaults
+      @repository_type = :api
+      @cache_ttl = {
+        summary: 30,
+        metadata: 300,
+        positions: 10,
+        transactions: 60,
+        accounts: 60
+      }
     end
 
     private

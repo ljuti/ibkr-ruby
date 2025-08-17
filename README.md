@@ -76,6 +76,69 @@ puts "Active Account: #{client.account_id}"
 puts "Available Accounts: #{client.available_accounts}"
 ```
 
+### Fluent Interface (New! 🚀)
+
+The IBKR gem now supports a **fluent, chainable API** for more readable and concise code:
+
+```ruby
+# Classic approach
+client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
+client.authenticate
+summary = client.accounts.summary
+positions = client.accounts.positions(page: 1, sort: "market_value", direction: "desc")
+
+# 🆕 Fluent approach - same functionality, more readable
+summary = Ibkr.connect("DU123456", live: false)
+  .portfolio
+  .summary
+
+positions = Ibkr.connect("DU123456", live: false)
+  .portfolio
+  .with_page(1)
+  .sorted_by("market_value", "desc")
+  .positions_with_options
+```
+
+#### Fluent Factory Methods
+
+```ruby
+# Quick client creation
+client = Ibkr.client("DU123456", live: false)
+
+# Account discovery workflow
+client = Ibkr.discover_accounts(live: false)
+
+# Connect and authenticate in one call
+client = Ibkr.connect("DU123456", live: false)
+
+# Connect and discover all accounts
+client = Ibkr.connect_and_discover(live: false)
+```
+
+#### Chainable Operations
+
+```ruby
+# Switch accounts and chain operations
+summary = Ibkr.connect_and_discover(live: false)
+  .with_account("DU789012")
+  .portfolio
+  .summary
+
+# Complex queries with fluent syntax
+transactions = Ibkr.connect("DU123456")
+  .portfolio
+  .for_contract(265598)  # Apple stock
+  .for_period(90)        # Last 90 days
+  .transactions_with_options
+
+# Paginated positions with sorting
+positions = Ibkr.connect("DU123456")
+  .portfolio
+  .with_page(2)
+  .sorted_by("unrealized_pnl", "desc")
+  .positions_with_options
+```
+
 ### Multi-Account Support
 
 The gem supports both single and multi-account workflows through a hybrid approach:

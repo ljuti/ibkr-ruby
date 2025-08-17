@@ -48,6 +48,68 @@ puts config.environment  # => :sandbox
 
 **Returns:** `Ibkr::Configuration`
 
+## Fluent Interface
+
+The IBKR gem provides fluent factory methods for more readable and concise code.
+
+### Ibkr.client
+
+Create a client instance with optional default account.
+
+```ruby
+# Single account setup
+client = Ibkr.client("DU123456", live: false)
+
+# Multi-account discovery
+client = Ibkr.client(live: false)
+```
+
+**Parameters:**
+- `default_account_id` (String, optional): Account ID to use as default
+- `live` (Boolean, optional): Environment mode
+
+**Returns:** `Ibkr::Client`
+
+### Ibkr.discover_accounts
+
+Create a client specifically for multi-account discovery workflow.
+
+```ruby
+client = Ibkr.discover_accounts(live: false)
+```
+
+**Parameters:**
+- `live` (Boolean, optional): Environment mode
+
+**Returns:** `Ibkr::Client`
+
+### Ibkr.connect
+
+Create and authenticate a client in one call.
+
+```ruby
+client = Ibkr.connect("DU123456", live: false)
+```
+
+**Parameters:**
+- `default_account_id` (String, optional): Account ID to use as default
+- `live` (Boolean, optional): Environment mode
+
+**Returns:** `Ibkr::Client` (authenticated)
+
+### Ibkr.connect_and_discover
+
+Create, authenticate, and perform account discovery.
+
+```ruby
+client = Ibkr.connect_and_discover(live: false)
+```
+
+**Parameters:**
+- `live` (Boolean, optional): Environment mode
+
+**Returns:** `Ibkr::Client` (authenticated with discovered accounts)
+
 ## Client
 
 ### Ibkr::Client.new
@@ -144,6 +206,75 @@ client.set_active_account("DU789012")
 ```ruby
 client.set_account_id("DU123456")  # Deprecated - use set_active_account
 ```
+
+### Fluent Client Methods
+
+#### #authenticate!
+
+Authenticate and return self for method chaining.
+
+```ruby
+client = Ibkr.client("DU123456")
+  .authenticate!  # Returns self
+  .with_account("DU789012")
+```
+
+**Returns:** `Ibkr::Client` (self)
+
+#### #with_account
+
+Switch active account and return self for chaining.
+
+```ruby
+client.with_account("DU789012")  # Returns self for chaining
+```
+
+**Parameters:**
+- `account_id` (String): Account ID to switch to
+
+**Returns:** `Ibkr::Client` (self)
+
+#### #portfolio
+
+Get a chainable accounts proxy for fluent operations.
+
+```ruby
+summary = client.portfolio.summary
+positions = client.portfolio
+  .with_page(1)
+  .sorted_by("market_value", "desc")
+  .positions_with_options
+```
+
+**Returns:** `Ibkr::ChainableAccountsProxy`
+
+#### #accounts_fluent
+
+Alias for `#portfolio` - returns chainable accounts proxy.
+
+```ruby
+client.accounts_fluent.summary
+```
+
+**Returns:** `Ibkr::ChainableAccountsProxy`
+
+### ChainableAccountsProxy Methods
+
+The `ChainableAccountsProxy` provides fluent methods for account operations:
+
+#### Chainable Methods
+- `with_page(page_num)` - Set pagination page
+- `sorted_by(field, direction)` - Set sorting options  
+- `for_period(days)` - Set time period for transactions
+- `for_contract(contract_id)` - Set contract for transactions
+
+#### Terminal Methods
+- `summary()` - Get account summary
+- `positions()` - Get positions with default options
+- `positions_with_options()` - Get positions with accumulated options
+- `transactions(contract_id, days)` - Get transactions with parameters
+- `transactions_with_options()` - Get transactions with accumulated options
+- `metadata()` - Get account metadata
 
 ### #accounts
 

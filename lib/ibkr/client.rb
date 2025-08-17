@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "oauth"
-require_relative "services/accounts"
+require_relative "accounts"
+require_relative "chainable_accounts_proxy"
 
 module Ibkr
   # Main client for Interactive Brokers Web API access.
@@ -191,6 +192,30 @@ module Ibkr
 
     def production?
       @config.production?
+    end
+
+    # Fluent interface methods
+
+    # Authenticate and return self for chaining
+    def authenticate!
+      authenticate
+      self
+    end
+
+    # Switch account and return self for chaining
+    def with_account(account_id)
+      set_active_account(account_id)
+      self
+    end
+
+    # Alias for accounts service that returns chainable accounts proxy
+    def portfolio
+      ChainableAccountsProxy.new(self)
+    end
+
+    # Chainable version of accounts service
+    def accounts_fluent
+      ChainableAccountsProxy.new(self)
     end
 
     private
