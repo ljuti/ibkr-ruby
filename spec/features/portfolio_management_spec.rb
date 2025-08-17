@@ -7,10 +7,14 @@ RSpec.describe "Portfolio Management Operations", type: :feature do
 
   let(:client) do
     client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
-    client.oauth_client = oauth_client
-    # Simulate authentication to set up active account
-    client.set_available_accounts(["DU123456"])
-    client.set_active_account_for_test("DU123456")
+    # Mock OAuth client properly
+    allow(client).to receive(:oauth_client).and_return(oauth_client)
+    # Authenticate to set up accounts properly
+    allow(oauth_client).to receive(:authenticate).and_return(true)
+    allow(oauth_client).to receive(:authenticated?).and_return(true)
+    allow(oauth_client).to receive(:initialize_session).and_return(true)
+    allow(oauth_client).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU123456"]})
+    client.authenticate
     client
   end
 

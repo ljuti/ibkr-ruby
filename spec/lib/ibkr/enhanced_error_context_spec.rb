@@ -309,14 +309,14 @@ RSpec.describe "Enhanced Error Context" do
 
     describe "authentication required error" do
       it "provides enhanced context for authentication errors" do
-        # Remove the global mock and create a new client for this test
+        # Create a new client for this test
         test_client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
 
-        # Override the private method directly to trigger the error
+        # Try to set an account when not authenticated should fail
         expect do
-          test_client.send(:ensure_authenticated!)
-        end.to raise_error(Ibkr::AuthenticationError::InvalidCredentials) do |error|
-          expect(error.context[:operation]).to eq("ensure_authenticated")
+          test_client.set_active_account("DU789012")
+        end.to raise_error(Ibkr::AuthenticationError) do |error|
+          expect(error.context[:operation]).to eq("account_management")
           expect(error.context[:default_account_id]).to eq("DU123456")
           expect(error.suggestions).to include("Verify your OAuth credentials are correct")
         end
@@ -326,8 +326,11 @@ RSpec.describe "Enhanced Error Context" do
     describe "account switching error" do
       before do
         allow(oauth_client).to receive(:authenticated?).and_return(true)
-        allow(client).to receive(:authenticated?).and_return(true)
-        client.set_available_accounts(["DU123456", "DU789012"])
+        allow(oauth_client).to receive(:initialize_session).and_return(true)
+        allow(oauth_client).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU123456", "DU789012"]})
+        allow(oauth_client).to receive(:authenticate).and_return(true)
+        allow(client).to receive(:oauth_client).and_return(oauth_client)
+        client.authenticate
       end
 
       it "provides enhanced context for account not found" do

@@ -4,6 +4,10 @@ require_relative "oauth"
 require_relative "accounts"
 require_relative "chainable_accounts_proxy"
 require_relative "websocket"
+require_relative "account_manager"
+require_relative "http_delegator"
+require_relative "websocket_facade"
+require_relative "configuration_delegator"
 
 module Ibkr
   # Main client for Interactive Brokers Web API access.
@@ -29,7 +33,10 @@ module Ibkr
   #   client.set_active_account("DU555555")  # Switch accounts
   #
   class Client
-    attr_reader :config, :active_account_id, :available_accounts, :default_account_id, :live
+    include HttpDelegator
+    include ConfigurationDelegator
+
+    attr_reader :config, :default_account_id, :live
 
     # Initialize a new IBKR client.
     #
@@ -47,16 +54,15 @@ module Ibkr
     #
     def initialize(default_account_id: nil, config: nil, live: false)
       @default_account_id = default_account_id&.freeze
-      @active_account_id = nil
-      @available_accounts = []
       @config = config || Ibkr.configuration.dup
       @live = live
 
-      # Set environment based on live parameter for backward compatibility
       @config.environment = live ? "production" : "sandbox"
 
       @oauth_client = nil
       @services = {}
+      @account_manager = nil
+      @websocket_facade = nil
     end
 
     # Authenticate with IBKR and set up account access.
@@ -77,18 +83,8 @@ module Ibkr
       # 1. Perform OAuth authentication
       result = oauth_client.authenticate
 
-      if result
-        # 2. Fetch available accounts after successful authentication
-        @available_accounts = fetch_available_accounts
-
-        # 3. Set active account (default or first available)
-        @active_account_id = @default_account_id || @available_accounts.first
-
-        # Validate the active account is actually available
-        if @active_account_id && !@available_accounts.include?(@active_account_id)
-          @active_account_id = @available_accounts.first
-        end
-      end
+      # 2. Set up account access if authentication succeeded
+      account_manager.discover_accounts if result
 
       result
     end
@@ -125,18 +121,8 @@ module Ibkr
     #   puts "Now using: #{client.account_id}"
     #
     def set_active_account(account_id)
-      ensure_authenticated!
-      unless @available_accounts.include?(account_id)
-        raise Ibkr::ApiError.account_not_found(
-          account_id,
-          context: {
-            available_accounts: @available_accounts,
-            operation: "set_active_account"
-          }
-        )
-      end
-      @active_account_id = account_id
-
+      account_manager.set_active_account(account_id)
+      
       # Clear cached services so they pick up the new account
       @services.clear
     end
@@ -148,76 +134,32 @@ module Ibkr
     # @example
     #   puts "Current account: #{client.account_id}"
     #
-    alias_method :account_id, :active_account_id
+    def account_id
+      account_manager.active_account_id
+    end
+
+    # Get the list of available accounts.
+    #
+    # @return [Array<String>] List of available account IDs
+    def available_accounts
+      account_manager.available_accounts
+    end
+
+    # Get the currently active account ID (alias for account_id).
+    #
+    # @return [String, nil] The active account ID, or nil if not authenticated
+    def active_account_id
+      account_id
+    end
 
     # Check if client is in live mode
     alias_method :live_mode?, :live
-
-    # Legacy method for setting account ID (deprecated).
-    #
-    # @deprecated Use {#set_active_account} instead
-    # @param account_id [String] The account ID to switch to
-    #
-    def set_account_id(account_id)
-      set_active_account(account_id)
-    end
 
     # Service accessors
     def accounts
       @services[:accounts] ||= Accounts.new(self)
     end
 
-    # Public accessor for oauth_client (for testing)
-    def oauth_client
-      @oauth_client ||= Oauth.new(config: @config, live: @live)
-    end
-
-    # Test-specific methods for dependency injection
-    # These methods are used by tests to inject mock objects and set up test scenarios
-    # They should only be used in test environments
-
-    # Allow test injection of OAuth client
-    attr_writer :oauth_client
-
-    # Allow test setup of available accounts (used after authentication in real scenarios)
-    def set_available_accounts(accounts)
-      @available_accounts = accounts.freeze
-    end
-
-    # Allow test setup of active account directly (bypassing normal validation)
-    def set_active_account_for_test(account_id)
-      @active_account_id = account_id
-    end
-
-    # HTTP methods (delegated to OAuth client)
-    def get(path, **options)
-      oauth_client.get(path, **options)
-    end
-
-    def post(path, **options)
-      oauth_client.post(path, **options)
-    end
-
-    def put(path, **options)
-      oauth_client.put(path, **options)
-    end
-
-    def delete(path, **options)
-      oauth_client.delete(path, **options)
-    end
-
-    # Configuration accessors
-    def environment
-      @config.environment
-    end
-
-    def sandbox?
-      @config.sandbox?
-    end
-
-    def production?
-      @config.production?
-    end
 
     # Fluent interface methods
 
@@ -243,159 +185,96 @@ module Ibkr
       ChainableAccountsProxy.new(self)
     end
 
-    # WebSocket accessor (lazy-loaded)
+    # WebSocket facade for real-time operations.
     #
-    # Provides real-time streaming capabilities for market data, portfolio updates,
-    # and order status. The WebSocket client is created on first access and
-    # integrates with the existing authentication system.
+    # @return [Ibkr::WebSocketFacade] WebSocket facade instance
+    def websocket_facade
+      @websocket_facade ||= WebSocketFacade.new(self)
+    end
+
+    # WebSocket client accessor (delegates to facade).
     #
     # @return [Ibkr::WebSocket::Client] WebSocket client instance
-    #
-    # @example Basic usage
-    #   websocket = client.websocket
-    #   websocket.connect
-    #   websocket.subscribe_market_data(["AAPL"], ["price"])
-    #
-    # @example Fluent interface
-    #   client.websocket
-    #     .connect
-    #     .subscribe_market_data(["AAPL"], ["price"])
-    #     .subscribe_portfolio
-    #
     def websocket
-      @websocket ||= WebSocket::Client.new(self)
+      websocket_facade.websocket
     end
 
-    # Streaming interface for WebSocket operations
-    def streaming
-      @streaming ||= WebSocket::Streaming.new(websocket)
-    end
-
-    # Market data interface for real-time data
-    def real_time_data
-      @real_time_data ||= WebSocket::MarketData.new(websocket)
-    end
-
-    # Fluent interface for WebSocket connection
+    # Streaming interface for WebSocket operations.
     #
-    # Connects to WebSocket and returns self for method chaining.
-    # Useful for fluent interface workflows.
+    # @return [Ibkr::WebSocket::Streaming] Streaming interface
+    def streaming
+      websocket_facade.streaming
+    end
+
+    # Market data interface for real-time data.
+    #
+    # @return [Ibkr::WebSocket::MarketData] Market data interface
+    def real_time_data
+      websocket_facade.real_time_data
+    end
+
+    # Fluent interface for WebSocket connection.
     #
     # @return [self] Returns self for method chaining
-    #
-    # @example
-    #   client.with_websocket.stream_market_data("AAPL")
-    #
     def with_websocket
       websocket.connect
       self
     end
 
-    # Stream market data (fluent interface)
-    #
-    # Connects to WebSocket and subscribes to market data for specified symbols.
-    # Returns self for method chaining.
+    # Stream market data (fluent interface).
     #
     # @param symbols [Array<String>, String] Symbols to subscribe to
     # @param fields [Array<String>] Data fields to receive (default: ["price"])
     # @return [self] Returns self for method chaining
-    #
-    # @example
-    #   client.stream_market_data("AAPL")
-    #   client.stream_market_data(["AAPL", "MSFT"], ["price", "volume"])
-    #
     def stream_market_data(*symbols, fields: ["price"])
       websocket.subscribe_to_market_data(symbols.flatten, fields)
       self
     end
 
-    # Stream portfolio updates (fluent interface)
-    #
-    # Connects to WebSocket and subscribes to portfolio updates for the current account.
-    # Returns self for method chaining.
+    # Stream portfolio updates (fluent interface).
     #
     # @param account_id [String, nil] Account ID (uses current account if nil)
     # @return [self] Returns self for method chaining
-    #
-    # @example
-    #   client.stream_portfolio
-    #   client.stream_portfolio("DU789012")
-    #
     def stream_portfolio(account_id = nil)
-      websocket.subscribe_to_portfolio_updates(account_id || @active_account_id)
+      websocket.subscribe_to_portfolio_updates(account_id || active_account_id)
       self
     end
 
-    # Stream order status updates (fluent interface)
-    #
-    # Connects to WebSocket and subscribes to order status updates for the current account.
-    # Returns self for method chaining.
+    # Stream order status updates (fluent interface).
     #
     # @param account_id [String, nil] Account ID (uses current account if nil)
     # @return [self] Returns self for method chaining
-    #
-    # @example
-    #   client.stream_orders
-    #   client.stream_orders("DU789012")
-    #
     def stream_orders(account_id = nil)
-      websocket.subscribe_to_order_status(account_id || @active_account_id)
+      websocket.subscribe_to_order_status(account_id || active_account_id)
       self
     end
 
     private
 
-    def fetch_available_accounts
-      # Ensure we have an authenticated brokerage session
-      unless oauth_client.authenticated?
-        raise Ibkr::AuthenticationError.credentials_invalid(
-          "Client must be authenticated before fetching accounts",
-          context: {operation: "fetch_accounts", default_account_id: @default_account_id}
-        )
-      end
-
-      # Initialize brokerage session if needed
-      oauth_client.initialize_session(priority: true)
-
-      # Fetch available accounts from IBKR API
-      response = oauth_client.get("/v1/api/iserver/accounts")
-
-      # Extract account IDs from the response
-      response["accounts"] || []
-
-      # Return account IDs array
-    rescue Ibkr::BaseError
-      # Re-raise IBKR-specific errors (they have useful context)
-      raise
-    rescue => e
-      # If fetching accounts fails for other reasons, fall back gracefully
-      # In production, this would be logged as a warning
-      if @default_account_id
-        [@default_account_id]
-      else
-        raise Ibkr::ApiError.with_context(
-          "Failed to fetch available accounts: #{e.message}",
-          context: {
-            operation: "fetch_accounts",
-            default_account_id: @default_account_id,
-            error_class: e.class.name,
-            original_error: e.message
-          }
-        )
-      end
+    def oauth_client
+      @oauth_client ||= Oauth.new(config: @config, live: @live)
     end
 
-    def ensure_authenticated!
-      unless authenticated?
-        raise Ibkr::AuthenticationError.credentials_invalid(
-          "Not authenticated. Call authenticate first.",
-          context: {
-            operation: "ensure_authenticated",
-            default_account_id: @default_account_id,
-            available_accounts: @available_accounts
-          }
-        )
-      end
+    # Get the account manager instance (lazy-loaded).
+    #
+    # @return [Ibkr::AccountManager] Account manager instance
+    def account_manager
+      @account_manager ||= AccountManager.new(oauth_client, default_account_id: @default_account_id)
     end
+
+    # Abstract method required by HttpDelegator module.
+    #
+    # @return [Ibkr::Oauth::Client] The HTTP client that handles requests
+    def http_client
+      oauth_client
+    end
+
+    # Abstract method required by ConfigurationDelegator module.
+    #
+    # @return [Ibkr::Configuration] The configuration object
+    def config_object
+      @config
+    end
+
   end
 end

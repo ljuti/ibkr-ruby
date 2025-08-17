@@ -125,8 +125,8 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         authenticated?: true,
         initialize_session: true,
         get: {"accounts" => ["DU789012"]})
-      client1.oauth_client = oauth1
-      client2.oauth_client = oauth2
+      allow(client1).to receive(:oauth_client).and_return(oauth1)
+      allow(client2).to receive(:oauth_client).and_return(oauth2)
 
       client1.authenticate
       client2.authenticate
@@ -137,12 +137,13 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
 
     it "provides access to account-specific services after authentication" do
       # Given a user has created a client for a specific account and authenticated
+      # Mock the OAuth client through stubbing
       oauth_client = double("oauth_client",
         authenticate: true,
         authenticated?: true,
         initialize_session: true,
         get: {"accounts" => ["DU123456"]})
-      client.oauth_client = oauth_client
+      allow(client).to receive(:oauth_client).and_return(oauth_client)
       client.authenticate
 
       # When they access account services

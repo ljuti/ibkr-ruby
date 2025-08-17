@@ -69,14 +69,10 @@ RSpec.describe "Fetch Available Accounts Integration", type: :unit do
     end
 
     context "when authentication fails" do
-      it "raises AuthenticationError if not authenticated" do
+      it "returns empty accounts when not authenticated" do
         unauthenticated_client = Ibkr::Client.new(live: false)
-        oauth_client = double("oauth_client", authenticated?: false)
-        unauthenticated_client.oauth_client = oauth_client
-
-        expect {
-          unauthenticated_client.send(:fetch_available_accounts)
-        }.to raise_error(Ibkr::AuthenticationError, /Client must be authenticated/)
+        # Client should return empty accounts when not authenticated
+        expect(unauthenticated_client.available_accounts).to eq([])
       end
     end
 

@@ -405,7 +405,9 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
       end
 
       it "handles concurrent API requests safely" do
-        allow(client.oauth_client).to receive(:get).and_return({"account_data" => "test"})
+        oauth_client = double("oauth_client")
+        allow(oauth_client).to receive(:get).and_return({"account_data" => "test"})
+        allow(client).to receive(:oauth_client).and_return(oauth_client)
 
         threads = Array.new(3) do
           Thread.new do
@@ -492,8 +494,8 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
         # Simulate authentication for both clients
         oauth1 = double("oauth_client1", authenticate: true, authenticated?: true)
         oauth2 = double("oauth_client2", authenticate: true, authenticated?: true)
-        client1.oauth_client = oauth1
-        client2.oauth_client = oauth2
+        allow(client1).to receive(:oauth_client).and_return(oauth1)
+        allow(client2).to receive(:oauth_client).and_return(oauth2)
         allow(oauth1).to receive(:initialize_session)
         allow(oauth2).to receive(:initialize_session)
         allow(oauth1).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU111111"]})
