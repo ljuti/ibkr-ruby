@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Load WebSocket-specific shared examples
+require_relative "shared_examples/websocket_behaviors"
+
 RSpec.shared_examples "a successful API request" do
   it "returns parsed JSON response" do
     expect(subject).to be_a(Hash)
@@ -151,13 +154,13 @@ RSpec.shared_examples "a WebSocket subscription manager" do
   end
 
   it "handles subscription limits" do
-    # Set subscription limits directly
-    subject.instance_variable_get(:@subscription_limits)[:total] = 2
+    # Use factory to create manager with limits
+    limited_manager = build_subscription_manager(max_total: 2)
     
-    subject.subscribe({ channel: "market_data", symbols: ["AAPL"] })
-    subject.subscribe({ channel: "market_data", symbols: ["GOOGL"] })
+    limited_manager.subscribe({ channel: "market_data", symbols: ["AAPL"] })
+    limited_manager.subscribe({ channel: "market_data", symbols: ["GOOGL"] })
     
-    expect { subject.subscribe({ channel: "market_data", symbols: ["MSFT"] }) }.to raise_error(Ibkr::WebSocket::SubscriptionError)
+    expect { limited_manager.subscribe({ channel: "market_data", symbols: ["MSFT"] }) }.to raise_error(Ibkr::WebSocket::SubscriptionError)
   end
 end
 

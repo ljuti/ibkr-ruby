@@ -323,6 +323,14 @@ module Ibkr
         @rate_limited_until
       end
 
+      # Test configuration helper - provides public interface for test setup
+      # This method is intentionally public to support testing without internal state access
+      def configure_for_testing(limits: {}, rate_limit: nil)
+        @subscription_limits = @subscription_limits.merge(limits) if limits.any?
+        @rate_limit = rate_limit if rate_limit
+        self
+      end
+
       private
 
       # Generate unique subscription ID
@@ -579,6 +587,7 @@ module Ibkr
         
         params
       end
+
     end
   end
 end

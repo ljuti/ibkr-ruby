@@ -2,11 +2,11 @@
 
 require "spec_helper"
 
-RSpec.describe Ibkr::WebSocket::SubscriptionManager do
+RSpec.describe Ibkr::WebSocket::SubscriptionManager, websocket: true do
   include_context "with WebSocket test environment"
   include_context "with WebSocket subscriptions"
 
-  let(:websocket_client) { double("websocket_client", send_message: true, authenticated?: true, emit: true) }
+  let(:websocket_client) { double("websocket_client", send_message: true, authenticated?: true, emit: true, account_id: "DU123456") }
   let(:subscription_manager) { described_class.new(websocket_client) }
   let(:subscription_request) { market_data_subscription }
   
@@ -214,46 +214,49 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
 
   describe "subscription limits and rate limiting" do
     context "when enforcing subscription limits" do
-      it "enforces maximum subscription limit" do
-        # Given subscription manager with limit
-        subscription_manager.instance_variable_get(:@subscription_limits)[:total] = 2
+      it "enforces overall subscription limit to maintain system stability" do
+        # Given a trading environment with conservative limits
+        manager = described_class.new(websocket_client)
+        manager.configure_for_testing(limits: { total: 2 })
 
-        # When creating subscriptions up to limit
-        subscription_manager.subscribe(channel: "market_data", symbols: ["AAPL"])
-        subscription_manager.subscribe(channel: "market_data", symbols: ["GOOGL"])
+        # When trader creates subscriptions up to their limit
+        manager.subscribe(channel: "market_data", symbols: ["AAPL"])
+        manager.subscribe(channel: "market_data", symbols: ["GOOGL"])
 
-        # Then limit should be enforced
+        # Then additional subscriptions are rejected with clear guidance
         expect {
-          subscription_manager.subscribe(channel: "market_data", symbols: ["MSFT"])
+          manager.subscribe(channel: "market_data", symbols: ["MSFT"])
         }.to raise_error(Ibkr::WebSocket::SubscriptionError, /limit exceeded/i)
       end
 
-      it "tracks subscription limits by channel type" do
-        # Given channel-specific limits
-        subscription_manager.instance_variable_get(:@subscription_limits)[:portfolio] = 5
+      it "applies channel-specific limits for specialized data streams" do
+        # Given a system with conservative portfolio subscription limits
+        manager = described_class.new(websocket_client)
+        manager.configure_for_testing(limits: { portfolio: 2 })
 
-        # When creating subscriptions for specific channel
-        5.times { |i| subscription_manager.subscribe(channel: "portfolio", account_id: "DU#{i}") }
+        # When trader creates portfolio subscriptions up to limit
+        2.times { |i| manager.subscribe(channel: "portfolio", account_id: "DU000#{i}") }
 
-        # Then channel limit should be enforced
+        # Then additional portfolio subscriptions are prevented
         expect {
-          subscription_manager.subscribe(channel: "portfolio", account_id: "DU6")
+          manager.subscribe(channel: "portfolio", account_id: "DU_OVERFLOW")
         }.to raise_error(Ibkr::WebSocket::SubscriptionError, /limit exceeded.*portfolio/i)
       end
 
-      it "implements subscription rate limiting" do
-        # Given rate limiting configuration
-        subscription_manager.instance_variable_set(:@rate_limit, 10) # 10 per minute
+      it "throttles rapid subscription requests to prevent system overload" do
+        # Given a system configured for moderate request rates
+        manager = described_class.new(websocket_client)
+        manager.configure_for_testing(rate_limit: 10)
 
-        # When creating many subscriptions rapidly
+        # When trader makes rapid subscription requests
         start_time = Time.now
         allow(Time).to receive(:now).and_return(start_time)
 
-        10.times { |i| subscription_manager.subscribe(channel: "market_data", symbols: ["STOCK#{i}"]) }
+        10.times { |i| manager.subscribe(channel: "market_data", symbols: ["STOCK#{i}"]) }
 
-        # Then rate limit should be enforced
+        # Then subsequent requests are rate limited
         expect {
-          subscription_manager.subscribe(channel: "market_data", symbols: ["OVER_LIMIT"])
+          manager.subscribe(channel: "market_data", symbols: ["OVER_LIMIT"])
         }.to raise_error(Ibkr::WebSocket::SubscriptionError, /rate limit exceeded/i)
       end
     end
@@ -438,17 +441,19 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
   describe "performance and memory management" do
     context "when handling high subscription volumes", websocket_performance: true do
       it "efficiently manages large numbers of subscriptions" do
-        # Given many subscriptions (adjust limits for performance test)
-        subscription_manager.instance_variable_get(:@subscription_limits)[:total] = 2000
-        subscription_manager.instance_variable_get(:@subscription_limits)[:market_data] = 2000
-        subscription_manager.instance_variable_set(:@rate_limit, 2000) # No rate limiting for performance test
+        # Given a system configured for high-volume trading operations
+        manager = described_class.new(websocket_client)
+        manager.configure_for_testing(
+          limits: { total: 2000, market_data: 2000 },
+          rate_limit: 2000  # No rate limiting for performance test
+        )
         subscription_count = 1000
         
         start_time = Time.now
         subscription_ids = []
         
         subscription_count.times do |i|
-          id = subscription_manager.subscribe(
+          id = manager.subscribe(
             channel: "market_data",
             symbols: ["STOCK#{i % 100}"],  # Reuse symbols to test deduplication
             fields: ["price"]
@@ -460,30 +465,32 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
         
         # Then operations should be efficient
         expect(end_time - start_time).to be < 1.0  # Under 1 second
-        expect(subscription_manager.subscription_count).to be <= subscription_count
+        expect(manager.subscription_count).to be <= subscription_count
       end
 
       it "cleans up subscription memory efficiently" do
-        # Given many subscriptions (adjust limits for performance test)
-        subscription_manager.instance_variable_get(:@subscription_limits)[:total] = 200
-        subscription_manager.instance_variable_get(:@subscription_limits)[:market_data] = 200
-        subscription_manager.instance_variable_set(:@rate_limit, 200) # No rate limiting for performance test
+        # Given a system with many active trading subscriptions
+        manager = described_class.new(websocket_client)
+        manager.configure_for_testing(
+          limits: { total: 200, market_data: 200 },
+          rate_limit: 200  # No rate limiting for performance test
+        )
         
         100.times do |i|
-          id = subscription_manager.subscribe(channel: "market_data", symbols: ["STOCK#{i}"])
-          subscription_manager.handle_subscription_response(subscription_id: id, status: "success")
+          id = manager.subscribe(channel: "market_data", symbols: ["STOCK#{i}"])
+          manager.handle_subscription_response(subscription_id: id, status: "success")
         end
 
         start_memory = GC.stat[:heap_live_slots]
 
-        # When cleaning up subscriptions
-        subscription_manager.unsubscribe_all
+        # When cleaning up all subscriptions
+        manager.unsubscribe_all
 
         GC.start
         end_memory = GC.stat[:heap_live_slots]
 
-        # Then memory should be reclaimed
-        expect(subscription_manager.subscription_count).to eq(0)
+        # Then memory should be efficiently reclaimed
+        expect(manager.subscription_count).to eq(0)
         expect(end_memory).to be <= start_memory
       end
     end
