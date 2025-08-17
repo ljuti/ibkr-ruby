@@ -165,9 +165,9 @@ RSpec.describe Ibkr::Accounts::Position do
         expect(position.conid).to eq("265598")
         expect(position.position).to eq(100)
         expect(position.market_value).to eq(16275.00)
-        # average_cost and average_price should be accessible even if not provided
-        expect { position.average_cost }.not_to raise_error
-        expect { position.average_price }.not_to raise_error
+        # average_cost and average_price should provide sensible defaults when data is missing
+        expect(position.average_cost).to be_nil.or be_a(Numeric)
+        expect(position.average_price).to be_nil.or be_a(Numeric)
       end
     end
 

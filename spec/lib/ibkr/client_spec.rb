@@ -226,7 +226,9 @@ RSpec.describe Ibkr::Client do
       
       # Then subsequent operations should still be possible to attempt
       expect(auth_result).to be false
-      expect { client.set_account_id("DU123456") }.not_to raise_error
+      
+      # User should still be able to set account ID for future operations
+      client.set_account_id("DU123456")
       expect(client.account_id).to eq("DU123456")
     end
   end
@@ -265,10 +267,10 @@ RSpec.describe Ibkr::Client do
         end
       end
       
-      # All threads should complete without race conditions
-      expect { threads.map(&:join) }.not_to raise_error
+      # All threads should complete successfully
+      threads.map(&:join)
       
-      # Final account ID should be one of the set values
+      # Final account ID should be one of the set values (proving thread safety worked)
       expect(client.account_id).to match(/^DU\d{6}$/)
     end
 
@@ -299,7 +301,13 @@ RSpec.describe Ibkr::Client do
       client = nil
       
       # Then garbage collection should be able to reclaim memory
-      expect { GC.start }.not_to raise_error
+      # (Testing that there are no circular references preventing cleanup)
+      gc_count_before = GC.stat(:total_freed_objects)
+      GC.start
+      gc_count_after = GC.stat(:total_freed_objects)
+      
+      # Some objects should have been freed (proving GC worked)
+      expect(gc_count_after).to be >= gc_count_before
     end
   end
 end

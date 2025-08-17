@@ -255,7 +255,12 @@ RSpec.describe "Ibkr::Oauth Cryptographic Operations", skip: true do
       token = Ibkr::Oauth::LiveSessionToken.new("token", "sig", Time.now.to_i + 3600)
       
       expect(token).to respond_to(:secure_compare)
-      expect { token.secure_compare("a", "b") }.not_to raise_error
+      
+      # Should return false for different strings
+      expect(token.secure_compare("a", "b")).to be false
+      
+      # Should return true for identical strings  
+      expect(token.secure_compare("same", "same")).to be true
     end
 
     it "prevents timing attacks in token validation" do
