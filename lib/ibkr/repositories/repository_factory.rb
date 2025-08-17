@@ -88,7 +88,7 @@ module Ibkr
           end
 
           # For production/development, prefer cached repository for performance
-          if client.instance_variable_get(:@live) == false # Sandbox mode
+          if client.live == false # Sandbox mode
             :cached
           else
             :api  # Live trading should use direct API calls

@@ -17,6 +17,7 @@ require_relative "support/shared_examples"
 require_relative "support/fixture_helper"
 require_relative "support/websocket_helpers"
 require_relative "support/websocket_test_factories"
+require_relative "support/test_helpers"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

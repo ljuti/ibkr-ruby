@@ -7,11 +7,7 @@ RSpec.describe Ibkr::Accounts do
 
   let(:client) do
     client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
-    client.instance_variable_set(:@oauth_client, oauth_client)
-    # Simulate authentication to set up active account
-    client.instance_variable_set(:@available_accounts, ["DU123456"])
-    client.instance_variable_set(:@active_account_id, "DU123456")
-    client
+    setup_authenticated_client(client, oauth_client: oauth_client, accounts: ["DU123456"])
   end
 
   let(:accounts_service) { described_class.new(client) }
@@ -23,7 +19,7 @@ RSpec.describe Ibkr::Accounts do
       service = described_class.new(client)
 
       # Then it should store the client reference and account ID
-      expect(service.instance_variable_get(:@_client)).to be(client)
+      expect_client_reference(service, client)
       expect(service.account_id).to eq("DU123456")
     end
 

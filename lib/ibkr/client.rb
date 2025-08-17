@@ -29,7 +29,7 @@ module Ibkr
   #   client.set_active_account("DU555555")  # Switch accounts
   #
   class Client
-    attr_reader :config, :active_account_id, :available_accounts
+    attr_reader :config, :active_account_id, :available_accounts, :default_account_id, :live
 
     # Initialize a new IBKR client.
     #
@@ -148,14 +148,10 @@ module Ibkr
     # @example
     #   puts "Current account: #{client.account_id}"
     #
-    def account_id
-      @active_account_id
-    end
+    alias_method :account_id, :active_account_id
 
     # Check if client is in live mode
-    def live_mode?
-      @live
-    end
+    alias_method :live_mode?, :live
 
     # Legacy method for setting account ID (deprecated).
     #
@@ -334,7 +330,7 @@ module Ibkr
 
     def fetch_available_accounts
       # Ensure we have an authenticated brokerage session
-      unless @oauth_client.authenticated?
+      unless oauth_client.authenticated?
         raise Ibkr::AuthenticationError.credentials_invalid(
           "Client must be authenticated before fetching accounts",
           context: {operation: "fetch_accounts", default_account_id: @default_account_id}
@@ -342,10 +338,10 @@ module Ibkr
       end
 
       # Initialize brokerage session if needed
-      @oauth_client.initialize_session(priority: true)
+      oauth_client.initialize_session(priority: true)
 
       # Fetch available accounts from IBKR API
-      response = @oauth_client.get("/v1/api/iserver/accounts")
+      response = oauth_client.get("/v1/api/iserver/accounts")
 
       # Extract account IDs from the response
       response["accounts"] || []

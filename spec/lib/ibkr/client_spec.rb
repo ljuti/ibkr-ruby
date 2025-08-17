@@ -17,8 +17,8 @@ RSpec.describe Ibkr::Client do
         client = described_class.new(default_account_id: "DU123456", live: false)
 
         # Then it should be configured for sandbox mode
-        expect(client.instance_variable_get(:@live)).to be false
-        expect(client.instance_variable_get(:@default_account_id)).to eq("DU123456")
+        expect(client.live).to be false
+        expect(client.default_account_id).to eq("DU123456")
         # Active account is not set until authentication
         expect(client.active_account_id).to be_nil
       end
@@ -31,8 +31,8 @@ RSpec.describe Ibkr::Client do
         client = described_class.new(default_account_id: "DU789012", live: true)
 
         # Then it should be configured for live trading
-        expect(client.instance_variable_get(:@live)).to be true
-        expect(client.instance_variable_get(:@default_account_id)).to eq("DU789012")
+        expect(client.live).to be true
+        expect(client.default_account_id).to eq("DU789012")
         # Active account is not set until authentication
         expect(client.active_account_id).to be_nil
       end
@@ -44,14 +44,19 @@ RSpec.describe Ibkr::Client do
       client = described_class.new(live: false)
 
       # Then it should initialize successfully
-      expect(client.instance_variable_get(:@live)).to be false
-      expect(client.instance_variable_get(:@default_account_id)).to be_nil
+      expect(client.live).to be false
+      expect(client.default_account_id).to be_nil
       expect(client.active_account_id).to be_nil
     end
   end
 
   describe "authentication delegation" do
-    let(:mock_oauth_client) { double("oauth_client", authenticated?: false) }
+    let(:mock_oauth_client) {
+      double("oauth_client",
+        authenticated?: false,
+        initialize_session: true,
+        get: {"accounts" => ["DU123456"]})
+    }
 
     before do
       allow(client).to receive(:oauth_client).and_return(mock_oauth_client)
@@ -118,7 +123,11 @@ RSpec.describe Ibkr::Client do
   describe "account management" do
     let(:authenticated_client) do
       client = described_class.new(default_account_id: "DU123456", live: false)
-      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+      oauth_client = double("oauth_client",
+        authenticate: true,
+        authenticated?: true,
+        initialize_session: true,
+        get: {"accounts" => ["DU123456"]})
       allow(client).to receive(:oauth_client).and_return(oauth_client)
       client.authenticate
       client
@@ -140,7 +149,7 @@ RSpec.describe Ibkr::Client do
         authenticated?: true,
         initialize_session: true,
         get: {"accounts" => ["DU111111", "DU222222"]})
-      client.instance_variable_set(:@oauth_client, oauth_client)
+      allow(client).to receive(:oauth_client).and_return(oauth_client)
       client.authenticate
 
       # When switching accounts
@@ -167,8 +176,11 @@ RSpec.describe Ibkr::Client do
       # Given an authenticated client with services
       authenticated_client.accounts
 
-      # When switching accounts (simulate multiple accounts available)
-      authenticated_client.instance_variable_set(:@available_accounts, ["DU123456", "DU555555"])
+      # When switching accounts (simulate multiple accounts available by re-authenticating)
+      allow(authenticated_client.oauth_client).to receive(:get)
+        .with("/v1/api/iserver/accounts")
+        .and_return({"accounts" => ["DU123456", "DU555555"]})
+      authenticated_client.authenticate
       authenticated_client.set_active_account("DU555555")
 
       # Then new services should reflect the new account
@@ -194,8 +206,8 @@ RSpec.describe Ibkr::Client do
         live_oauth = live_client.oauth_client
         sandbox_oauth = client.oauth_client
 
-        expect(live_oauth.instance_variable_get(:@_live)).to be true
-        expect(sandbox_oauth.instance_variable_get(:@_live)).to be false
+        expect(live_oauth.live).to be true
+        expect(sandbox_oauth.live).to be false
       end
     end
 
@@ -215,12 +227,17 @@ RSpec.describe Ibkr::Client do
         accounts_service = client.accounts
 
         # The service should have access to the client
-        expect(accounts_service.instance_variable_get(:@_client)).to be(client)
+        # Test that service properly uses the client (behavior over state)
+        expect(accounts_service.account_id).to eq(client.account_id)
       end
 
       it "reflects current account ID in service after authentication" do
         # Given an authenticated client with account ID
-        oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+        oauth_client = double("oauth_client",
+          authenticate: true,
+          authenticated?: true,
+          initialize_session: true,
+          get: {"accounts" => ["DU123456"]})
         allow(client).to receive(:oauth_client).and_return(oauth_client)
         client.authenticate
 
@@ -235,7 +252,13 @@ RSpec.describe Ibkr::Client do
   end
 
   describe "workflow integration" do
-    let(:mock_oauth_client) { double("oauth_client", authenticate: true, authenticated?: true, initialize_session: {"connected" => true}) }
+    let(:mock_oauth_client) {
+      double("oauth_client",
+        authenticate: true,
+        authenticated?: true,
+        initialize_session: {"connected" => true},
+        get: {"accounts" => ["DU123456"]})
+    }
     let(:mock_accounts_service) { double("accounts_service", summary: double("summary")) }
 
     before do
@@ -276,12 +299,17 @@ RSpec.describe Ibkr::Client do
       # No active account should be set when authentication fails
       expect(client.account_id).to be_nil
       # But default account ID is still available for retry
-      expect(client.instance_variable_get(:@default_account_id)).to eq("DU123456")
+      expect(client.default_account_id).to eq("DU123456")
     end
   end
 
   describe "error propagation" do
-    let(:mock_oauth_client) { double("oauth_client", authenticated?: false) }
+    let(:mock_oauth_client) {
+      double("oauth_client",
+        authenticated?: false,
+        initialize_session: true,
+        get: {"accounts" => ["DU123456"]})
+    }
 
     before do
       allow(client).to receive(:oauth_client).and_return(mock_oauth_client)
@@ -309,7 +337,11 @@ RSpec.describe Ibkr::Client do
   describe "thread safety" do
     it "maintains thread safety for account ID access" do
       # First authenticate the client to set up active account
-      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+      oauth_client = double("oauth_client",
+        authenticate: true,
+        authenticated?: true,
+        initialize_session: true,
+        get: {"accounts" => ["DU123456"]})
       allow(client).to receive(:oauth_client).and_return(oauth_client)
       client.authenticate
 
@@ -348,7 +380,11 @@ RSpec.describe Ibkr::Client do
   describe "resource cleanup" do
     it "allows garbage collection of large response data" do
       # Given an authenticated client with account data
-      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+      oauth_client = double("oauth_client",
+        authenticate: true,
+        authenticated?: true,
+        initialize_session: true,
+        get: {"accounts" => ["DU123456"]})
       allow(client).to receive(:oauth_client).and_return(oauth_client)
       client.authenticate
       expect(client.account_id).to eq("DU123456")

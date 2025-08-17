@@ -36,7 +36,8 @@ module Ibkr
       defines_events :state_changed, :connected, :authenticated, :disconnected,
         :error, :message_received, :heartbeat
 
-      attr_reader :state, :websocket, :last_ping_at, :last_pong_at, :connection_id
+      attr_reader :state, :websocket, :last_ping_at, :last_pong_at, :connection_id,
+        :heartbeat_interval, :connection_timeout
 
       # @param websocket_client [Ibkr::WebSocket::Client] Parent WebSocket client
       def initialize(websocket_client)
@@ -245,6 +246,21 @@ module Ibkr
         Time.now - @connected_at
       end
 
+      # Get the EventMachine thread status
+      #
+      # @return [Boolean] True if EventMachine thread is alive
+      def em_thread_alive?
+        @em_thread&.alive? || false
+      end
+
+      # Get the session token from authentication
+      #
+      # @return [String, nil] The session token if authenticated
+      def session_token
+        return nil unless authenticated?
+        @authentication.session_token
+      end
+
       # Send raw message through WebSocket (for IBKR-specific formats)
       #
       # @param message [String] Raw message to send
@@ -266,6 +282,51 @@ module Ibkr
       # @return [void]
       def set_authenticated!
         change_state(:authenticated)
+      end
+
+      # Calculate heartbeat lag (called from Client)
+      #
+      # @return [Float, nil] Lag in seconds, or nil if no ping/pong yet
+      def heartbeat_lag
+        return nil unless @last_ping_at && @last_pong_at
+        @last_pong_at - @last_ping_at
+      end
+
+      # Initiate authentication (called from Client)
+      #
+      # @return [void]
+      def authenticate_connection
+        change_state(:authenticating)
+
+        # Send a WebSocket ping to activate the session
+        # According to IBKR docs, ping with topic "tic" keeps session alive
+        EventMachine.add_timer(1) do
+          send_websocket_ping
+        end
+      end
+
+      # Handle authentication response (called from MessageRouter)
+      #
+      # @param message [Hash] Auth response message
+      # @return [void]
+      def handle_auth_response(message)
+        if @authentication.handle_auth_response(message)
+          change_state(:authenticated)
+          emit(:authenticated, connection_id: @connection_id)
+          start_heartbeat
+        end
+      rescue AuthenticationError => e
+        change_state(:error)
+        emit(:error, e)
+      end
+
+      # Handle pong response (called from MessageRouter)
+      #
+      # @param message [Hash] Pong message
+      # @return [void]
+      def handle_pong_message(message)
+        @last_pong_at = Time.now
+        emit(:heartbeat, lag: heartbeat_lag)
       end
 
       private
@@ -434,36 +495,6 @@ module Ibkr
         emit(:error, error)
       end
 
-      # WebSocket authentication is now handled via Cookie header
-      # This method is kept for compatibility but simplified
-      def authenticate_connection
-        change_state(:authenticating)
-
-        # Send a WebSocket ping to activate the session
-        # According to IBKR docs, ping with topic "tic" keeps session alive
-        EventMachine.add_timer(1) do
-          send_websocket_ping
-        end
-      end
-
-      # Handle authentication response from server
-      def handle_auth_response(message)
-        if @authentication.handle_auth_response(message)
-          change_state(:authenticated)
-          emit(:authenticated, connection_id: @connection_id)
-          start_heartbeat
-        end
-      rescue AuthenticationError => e
-        change_state(:error)
-        emit(:error, e)
-      end
-
-      # Handle pong response from server
-      def handle_pong_message(message)
-        @last_pong_at = Time.now
-        emit(:heartbeat, lag: heartbeat_lag)
-      end
-
       # Start heartbeat timer
       def start_heartbeat
         return if @heartbeat_timer
@@ -492,14 +523,6 @@ module Ibkr
         return true unless @last_pong_at
 
         Configuration.heartbeat_stale?(@last_pong_at)
-      end
-
-      # Calculate heartbeat lag
-      #
-      # @return [Float, nil] Lag in seconds, or nil if no ping/pong yet
-      def heartbeat_lag
-        return nil unless @last_ping_at && @last_pong_at
-        @last_pong_at - @last_ping_at
       end
 
       # Change connection state and emit event

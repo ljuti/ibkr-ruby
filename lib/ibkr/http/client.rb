@@ -8,7 +8,8 @@ require "stringio"
 module Ibkr
   module Http
     class Client
-      attr_reader :config, :authenticator
+      attr_reader :config
+      attr_accessor :authenticator
 
       def initialize(config:, authenticator: nil)
         @config = config

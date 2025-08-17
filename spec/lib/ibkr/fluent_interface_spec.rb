@@ -13,16 +13,16 @@ RSpec.describe "Ibkr Fluent Interface", type: :unit do
         client = Ibkr.client("DU123456", live: false)
 
         expect(client).to be_instance_of(Ibkr::Client)
-        expect(client.instance_variable_get(:@default_account_id)).to eq("DU123456")
-        expect(client.instance_variable_get(:@live)).to be false
+        expect(client.default_account_id).to eq("DU123456")
+        expect(client.live).to be false
       end
 
       it "creates a client without default account" do
         client = Ibkr.client(live: true)
 
         expect(client).to be_instance_of(Ibkr::Client)
-        expect(client.instance_variable_get(:@default_account_id)).to be_nil
-        expect(client.instance_variable_get(:@live)).to be true
+        expect(client.default_account_id).to be_nil
+        expect(client.live).to be true
       end
     end
 
@@ -31,8 +31,8 @@ RSpec.describe "Ibkr Fluent Interface", type: :unit do
         client = Ibkr.discover_accounts(live: false)
 
         expect(client).to be_instance_of(Ibkr::Client)
-        expect(client.instance_variable_get(:@default_account_id)).to be_nil
-        expect(client.instance_variable_get(:@live)).to be false
+        expect(client.default_account_id).to be_nil
+        expect(client.live).to be false
       end
     end
 
@@ -71,9 +71,15 @@ RSpec.describe "Ibkr Fluent Interface", type: :unit do
 
     describe "#with_account" do
       before do
+        # Mock OAuth client to return multiple accounts during authentication
+        oauth_client = double("oauth_client",
+          authenticate: true,
+          authenticated?: true,
+          initialize_session: true,
+          get: {"accounts" => ["DU123456", "DU789012"]})
+        allow(client).to receive(:oauth_client).and_return(oauth_client)
+
         client.authenticate!
-        # Mock multiple accounts
-        client.instance_variable_set(:@available_accounts, ["DU123456", "DU789012"])
       end
 
       it "switches account and returns self" do
@@ -176,29 +182,29 @@ RSpec.describe "Ibkr Fluent Interface", type: :unit do
         result = proxy.with_page(2)
 
         expect(result).to be(proxy)
-        expect(proxy.instance_variable_get(:@page)).to eq(2)
+        expect(proxy.page).to eq(2)
       end
 
       it "chains sorting options" do
         result = proxy.sorted_by("market_value", "desc")
 
         expect(result).to be(proxy)
-        expect(proxy.instance_variable_get(:@sort_field)).to eq("market_value")
-        expect(proxy.instance_variable_get(:@sort_direction)).to eq("desc")
+        expect(proxy.sort_field).to eq("market_value")
+        expect(proxy.sort_direction).to eq("desc")
       end
 
       it "chains period selection" do
         result = proxy.for_period(60)
 
         expect(result).to be(proxy)
-        expect(proxy.instance_variable_get(:@period_days)).to eq(60)
+        expect(proxy.period_days).to eq(60)
       end
 
       it "chains contract selection" do
         result = proxy.for_contract(265598)
 
         expect(result).to be(proxy)
-        expect(proxy.instance_variable_get(:@contract_id)).to eq(265598)
+        expect(proxy.contract_id).to eq(265598)
       end
     end
 

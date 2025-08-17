@@ -3,6 +3,8 @@
 module Ibkr
   # Chainable proxy for account operations that provides a fluent interface
   class ChainableAccountsProxy
+    attr_reader :page, :sort_field, :sort_direction, :period_days, :contract_id
+
     def initialize(client)
       @client = client
       @accounts_service = nil

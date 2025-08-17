@@ -10,19 +10,19 @@ module Ibkr
   module Oauth
     # Main OAuth interface - coordinates authentication flow
     class Client
-      attr_reader :config, :http_client, :authenticator
+      attr_reader :config, :http_client, :authenticator, :live
 
       def initialize(config: nil, live: nil)
         @config = config || Ibkr.configuration
         # Store live mode - infer from config if not explicitly passed
-        @_live = live.nil? ? @config.production? : live
+        @live = live.nil? ? @config.production? : live
         # Don't validate during initialization - validate when needed
 
         @http_client = Ibkr::Http::Client.new(config: @config)
         @authenticator = Oauth::Authenticator.new(config: @config, http_client: @http_client)
 
         # Update http client to use authenticator
-        @http_client.instance_variable_set(:@authenticator, @authenticator)
+        @http_client.authenticator = @authenticator
       end
 
       # Authenticate with IBKR

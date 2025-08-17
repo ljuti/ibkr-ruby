@@ -56,7 +56,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         # Then the system should apply enhanced security measures
         result = live_client.authenticate
         expect(result).to be true
-        expect(live_client.oauth_client.instance_variable_get(:@_live)).to be true
+        expect(live_client.oauth_client.live).to be true
       end
     end
   end

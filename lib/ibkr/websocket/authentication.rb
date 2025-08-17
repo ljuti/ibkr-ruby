@@ -23,6 +23,8 @@ module Ibkr
     # - Sends session token for WebSocket authentication
     #
     class Authentication
+      attr_reader :session_token, :session_data
+
       # @param ibkr_client [Ibkr::Client] The authenticated IBKR client
       def initialize(ibkr_client)
         @ibkr_client = ibkr_client
@@ -57,12 +59,8 @@ module Ibkr
         {"session" => @session_token}.to_json
       end
 
-      # Get current WebSocket session token
-      #
-      # @return [String, nil] Current session token or nil if not authenticated
-      def current_token
-        @session_token
-      end
+      # Alias for compatibility
+      alias_method :current_token, :session_token
 
       # Force refresh of session token from /tickle
       #

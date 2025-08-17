@@ -51,7 +51,7 @@ module Ibkr
       end
 
       def account_id
-        @ibkr_client.account_id || @ibkr_client.instance_variable_get(:@default_account_id)
+        @ibkr_client.account_id || @ibkr_client.default_account_id
       end
 
       def live_mode?
@@ -64,11 +64,11 @@ module Ibkr
       end
 
       def heartbeat_interval
-        @connection_manager.instance_variable_get(:@heartbeat_interval)
+        @connection_manager.heartbeat_interval
       end
 
       def connection_timeout
-        @connection_manager.instance_variable_get(:@connection_timeout)
+        @connection_manager.connection_timeout
       end
 
       # @param ibkr_client [Ibkr::Client] Authenticated IBKR client
@@ -169,7 +169,7 @@ module Ibkr
           uptime: @connection_manager.uptime,
           last_ping_at: @connection_manager.last_ping_at,
           last_pong_at: @connection_manager.last_pong_at,
-          heartbeat_lag: @connection_manager.send(:heartbeat_lag),
+          heartbeat_lag: @connection_manager.heartbeat_lag,
           websocket_ready_state: @connection_manager.websocket&.ready_state,
           websocket_nil: @connection_manager.websocket.nil?,
           websocket_url: @connection_manager.websocket_url,
@@ -416,7 +416,7 @@ module Ibkr
           )
         end
 
-        @connection_manager.send(:authenticate_connection)
+        @connection_manager.authenticate_connection
       end
 
       # Get recent message errors
@@ -447,7 +447,7 @@ module Ibkr
       def eventmachine_status
         {
           running: EventMachine.reactor_running?,
-          thread_running: @connection_manager.instance_variable_get(:@em_thread)&.alive? || false
+          thread_running: @connection_manager.em_thread_alive?
         }
       end
 
@@ -525,7 +525,7 @@ module Ibkr
       def session_id
         # Try to get from connection manager state or authentication
         return nil unless @connection_manager.authenticated?
-        @connection_manager.instance_variable_get(:@authentication)&.instance_variable_get(:@session_token)
+        @connection_manager.session_token
       end
 
       # Get error count
@@ -617,7 +617,7 @@ module Ibkr
       #
       # @return [Float] Maximum delay in seconds
       def max_reconnect_delay
-        @reconnection_strategy.instance_variable_get(:@max_delay)
+        @reconnection_strategy.max_delay
       end
 
       private

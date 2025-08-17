@@ -227,6 +227,12 @@ RSpec.shared_context "with authenticated oauth client" do
       sandbox?: true,
       production?: false,
       ping: {"session" => "cb0f2f5202aab5d3ca020c118356f315"})
+
+    # Allow commonly needed methods for tests that use authentication
+    allow(client_double).to receive(:authenticate).and_return(true)
+    allow(client_double).to receive(:initialize_session).and_return(true)
+    allow(client_double).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU123456"]})
+
     client_double
   end
 end

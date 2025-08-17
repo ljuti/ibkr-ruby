@@ -15,7 +15,7 @@ RSpec.describe Ibkr::Oauth do
       it "provides sandbox trading environment" do
         # When user creates client for sandbox
         # Then it should be configured for testing/development
-        expect(oauth_client.instance_variable_get(:@_live)).to be false
+        expect(oauth_client.live).to be false
       end
 
       it "initializes in unauthenticated state" do
@@ -31,7 +31,7 @@ RSpec.describe Ibkr::Oauth do
       it "provides production trading environment" do
         # When user creates client for live trading
         # Then it should be configured for real trading
-        expect(live_oauth_client.instance_variable_get(:@_live)).to be true
+        expect(live_oauth_client.live).to be true
       end
     end
   end
@@ -106,7 +106,7 @@ RSpec.describe Ibkr::Oauth do
     context "when token request succeeds" do
       before do
         # Ensure we start with no existing token to test fresh token generation
-        oauth_client.authenticator.instance_variable_set(:@current_token, nil)
+        oauth_client.authenticator.current_token = nil
       end
 
       it "provides valid session token for trading operations" do
@@ -138,7 +138,7 @@ RSpec.describe Ibkr::Oauth do
 
         # Set up the authenticator state directly
         authenticator = oauth_client.authenticator
-        authenticator.instance_variable_set(:@current_token, invalid_token)
+        authenticator.current_token = invalid_token
 
         # When checking authentication with invalid token
         # Then user should know they need to re-authenticate
@@ -163,7 +163,7 @@ RSpec.describe Ibkr::Oauth do
 
         # Set up authenticator state directly
         authenticator = oauth_client.authenticator
-        authenticator.instance_variable_set(:@current_token, valid_token)
+        authenticator.current_token = valid_token
 
         # When user logs out (logout endpoint mocked by WebMock)
         result = oauth_client.logout
@@ -185,7 +185,7 @@ RSpec.describe Ibkr::Oauth do
 
         # Set up authenticator state directly
         authenticator = oauth_client.authenticator
-        authenticator.instance_variable_set(:@current_token, valid_token)
+        authenticator.current_token = valid_token
 
         # Override logout endpoint with server error
         stub_request(:post, "#{base_url}/v1/api/logout")
@@ -214,7 +214,7 @@ RSpec.describe Ibkr::Oauth do
 
       # Set up authenticator state directly
       authenticator = oauth_client.authenticator
-      authenticator.instance_variable_set(:@current_token, valid_token)
+      authenticator.current_token = valid_token
     end
 
     context "when establishing trading connection" do
@@ -253,7 +253,7 @@ RSpec.describe Ibkr::Oauth do
 
       # Set up authenticator state directly
       authenticator = oauth_client.authenticator
-      authenticator.instance_variable_set(:@current_token, valid_token)
+      authenticator.current_token = valid_token
     end
 
     describe "data retrieval operations" do

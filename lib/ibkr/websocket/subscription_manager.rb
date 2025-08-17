@@ -29,7 +29,7 @@ module Ibkr
       # Default rate limits (requests per minute)
       DEFAULT_RATE_LIMIT = Configuration::DEFAULT_RATE_LIMIT
 
-      attr_reader :subscriptions, :rate_limited_until
+      attr_reader :subscriptions, :rate_limited_until, :rate_limit
 
       # @param websocket_client [Ibkr::WebSocket::Client] Parent WebSocket client
       def initialize(websocket_client)
@@ -291,12 +291,8 @@ module Ibkr
         @subscription_limits.except(:total)
       end
 
-      # Get subscription rate limit
-      #
-      # @return [Integer] Maximum subscriptions per minute
-      def subscription_rate_limit
-        @rate_limit
-      end
+      # Alias for compatibility
+      alias_method :subscription_rate_limit, :rate_limit
 
       # Check if currently rate limited
       #
@@ -313,12 +309,8 @@ module Ibkr
         (@rate_limited_until - Time.now).ceil
       end
 
-      # Get rate limit reset time
-      #
-      # @return [Time, nil] Time when rate limit resets
-      def rate_limit_resets_at
-        @rate_limited_until
-      end
+      # Alias for compatibility
+      alias_method :rate_limit_resets_at, :rate_limited_until
 
       # Test configuration helper - provides public interface for test setup
       # This method is intentionally public to support testing without internal state access

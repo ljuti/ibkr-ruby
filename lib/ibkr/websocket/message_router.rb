@@ -316,7 +316,7 @@ module Ibkr
       # Default message handlers
 
       def handle_auth_response(message)
-        @websocket_client.connection_manager.send(:handle_auth_response, message)
+        @websocket_client.connection_manager.handle_auth_response(message)
       end
 
       def handle_ping(message)
@@ -329,7 +329,7 @@ module Ibkr
       end
 
       def handle_pong(message)
-        @websocket_client.connection_manager.send(:handle_pong_message, message)
+        @websocket_client.connection_manager.handle_pong_message(message)
       end
 
       def handle_subscription_response(message)
