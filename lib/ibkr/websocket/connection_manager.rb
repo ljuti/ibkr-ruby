@@ -2,6 +2,8 @@
 
 require "faye/websocket"
 require "eventmachine"
+require_relative "configuration"
+require_relative "connection_status"
 
 module Ibkr
   module WebSocket
@@ -46,8 +48,8 @@ module Ibkr
         @last_pong_at = nil
         @connection_id = nil
         @heartbeat_timer = nil
-        @heartbeat_interval = 30 # 30 seconds
-        @connection_timeout = 10 # 10 seconds
+        @heartbeat_interval = Configuration::HEARTBEAT_INTERVAL
+        @connection_timeout = Configuration::CONNECTION_TIMEOUT
         
         initialize_events
       end
@@ -65,11 +67,18 @@ module Ibkr
           ensure_eventmachine_running
           establish_websocket_connection
           true
+        rescue AuthenticationError => e
+          change_state(:error)
+          raise e  # Re-raise authentication errors without converting them
         rescue => e
           change_state(:error)
           raise ConnectionError.connection_failed(
             "Failed to establish WebSocket connection: #{e.message}",
-            context: { endpoint: @authentication.websocket_endpoint },
+            context: { 
+              endpoint: @authentication.websocket_endpoint,
+              websocket_url: @authentication.websocket_endpoint,
+              account_id: @websocket_client.account_id
+            },
             cause: e
           )
         end
@@ -193,8 +202,7 @@ module Ibkr
         return false unless @websocket
 
         begin
-          ping_message = "tic"
-          @websocket.send(ping_message)
+          @websocket.send(Configuration::IBKR_PING_MESSAGE)
           true
         rescue => e
           emit(:error, e)
@@ -204,9 +212,9 @@ module Ibkr
 
       # Get connection statistics
       #
-      # @return [Hash] Connection statistics and health metrics
+      # @return [ConnectionStatus] Connection status object
       def connection_stats
-        {
+        ConnectionStatus.new(
           state: @state,
           connected: connected?,
           authenticated: authenticated?,
@@ -215,8 +223,11 @@ module Ibkr
           uptime: uptime,
           last_ping_at: @last_ping_at,
           last_pong_at: @last_pong_at,
-          heartbeat_lag: heartbeat_lag
-        }
+          heartbeat_lag: heartbeat_lag,
+          websocket_ready_state: @websocket&.ready_state,
+          websocket_nil: @websocket.nil?,
+          websocket_url: @authentication.websocket_endpoint
+        )
       end
 
       # Get the WebSocket endpoint URL being used for debugging
@@ -234,6 +245,29 @@ module Ibkr
         Time.now - @connected_at
       end
 
+      # Send raw message through WebSocket (for IBKR-specific formats)
+      #
+      # @param message [String] Raw message to send
+      # @return [Boolean] True if sent successfully
+      def send_raw_message(message)
+        return false unless @websocket
+
+        begin
+          @websocket.send(message)
+          true
+        rescue => e
+          emit(:error, e)
+          false
+        end
+      end
+
+      # Set the connection as authenticated (called from message router)
+      #
+      # @return [void]
+      def set_authenticated!
+        change_state(:authenticated)
+      end
+
       private
 
       # Ensure EventMachine is running
@@ -249,10 +283,10 @@ module Ibkr
         end
         
         # Wait for EventMachine to start and be ready
-        sleep 0.1 until EventMachine.reactor_running?
+        sleep Configuration::EM_START_WAIT_INTERVAL until EventMachine.reactor_running?
         
         # Give EventMachine a moment to fully initialize
-        sleep 0.1
+        sleep Configuration::EM_INITIALIZATION_DELAY
       end
 
       # Establish the actual WebSocket connection
@@ -287,7 +321,7 @@ module Ibkr
         end
         
         # Wait for the connection to be established or fail
-        sleep 0.01 until connection_established
+        sleep Configuration::CONNECTION_ESTABLISHMENT_WAIT until connection_established
         
         # Raise error if connection failed
         if connection_error
@@ -328,13 +362,14 @@ module Ibkr
 
       # Handle incoming WebSocket messages
       def handle_websocket_message(event)
+        message = nil
         begin
           # First try to parse as JSON
           begin
             message = JSON.parse(event.data, symbolize_names: true)
           rescue JSON::ParserError
             # If not JSON, treat as raw message (IBKR sometimes sends non-JSON)
-            message = { raw_message: event.data, message: event.data }
+            message = { type: "raw", raw_message: event.data, message: event.data }
           end
           
           
@@ -347,10 +382,11 @@ module Ibkr
             emit(:message_received, message)
           end
         rescue => e
+          message_type = message.is_a?(Hash) ? message[:type] : "unknown"
           emit(:error, MessageProcessingError.message_routing_failed(
             "Error processing WebSocket message",
             context: { 
-              message_type: message&.dig(:type),
+              message_type: message_type,
               raw_data: event.data 
             },
             cause: e
@@ -460,8 +496,7 @@ module Ibkr
         return false unless @last_ping_at
         return true unless @last_pong_at
         
-        # Consider stale if no pong received within 2x heartbeat interval
-        Time.now - @last_pong_at > (@heartbeat_interval * 2)
+        Configuration.heartbeat_stale?(@last_pong_at)
       end
 
       # Calculate heartbeat lag
@@ -483,6 +518,7 @@ module Ibkr
         
         emit(:state_changed, from: old_state, to: new_state)
       end
+
     end
   end
 end

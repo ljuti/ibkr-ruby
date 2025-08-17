@@ -16,7 +16,14 @@ RSpec.shared_context "with mocked WebSocket connection" do
   let(:websocket_events) { {} }
 
   before do
-    allow(Faye::WebSocket::Client).to receive(:new).and_return(mock_websocket)
+    # Ensure mock_websocket is reset for each test
+    allow(mock_websocket).to receive(:ready_state).and_return(Faye::WebSocket::API::OPEN)
+    
+    allow(Faye::WebSocket::Client).to receive(:new) do |url, protocols, options|
+      # Reset event handlers for each new WebSocket
+      websocket_events.clear
+      mock_websocket
+    end
     
     # Capture event handlers for simulation
     allow(mock_websocket).to receive(:on) do |event, &block|
@@ -56,35 +63,148 @@ RSpec.shared_context "with WebSocket authentication" do
   include_context "with mocked WebSocket connection"
   include_context "with authenticated oauth client"
 
-  let(:auth_message) do
+  # Mock the tickle response that provides session token
+  let(:mock_session_token) { "cb0f2f5202aab5d3ca020c118356f315" }
+  let(:tickle_response) do
     {
-      type: "auth",
-      token: valid_token.token,
-      timestamp: Time.now.to_i
+      "session" => mock_session_token,
+      "hmds" => {"error" => "no bridge"},
+      "iserver" => {
+        "authStatus" => {
+          "authenticated" => true,
+          "competing" => false,
+          "connected" => true,
+          "message" => "",
+          "MAC" => "06:4C:4B:38:D4:CE",
+          "serverInfo" => {
+            "serverName" => "JifZ27010",
+            "serverVersion" => "Build 10.38.1c, Aug 4, 2025 2:10:48 PM"
+          }
+        }
+      }
     }
   end
 
-  let(:auth_success_response) do
+  # IBKR's actual message format for system messages
+  let(:system_success_message) do
     {
-      type: "auth_response",
-      status: "success",
-      session_id: "ws_session_123",
-      expires_at: (Time.now + 3600).to_i
+      topic: "system",
+      success: "fukujy152",
+      isFT: false,
+      isPaper: false
     }
   end
 
-  let(:auth_failure_response) do
+  # IBKR's actual authentication status message
+  let(:auth_status_message) do
     {
-      type: "auth_response",
-      status: "error",
-      error: "invalid_token",
-      message: "Authentication failed"
+      topic: "sts",
+      args: {
+        connected: true,
+        authenticated: true,
+        competing: false,
+        message: "",
+        fail: "",
+        serverName: "JifZ30006",
+        serverVersion: "Build 10.38.1c, Aug 4, 2025 2:10:48 PM",
+        username: "fukujy152"
+      }
     }
+  end
+
+  # IBKR's account information message
+  let(:account_info_message) do
+    {
+      topic: "act",
+      args: {
+        accounts: ["U18282243"],
+        acctProps: {
+          "U18282243" => {
+            hasChildAccounts: false,
+            supportsCashQty: true,
+            liteUnderPro: false,
+            noFXConv: false
+          }
+        },
+        aliases: {"U18282243" => "reforge"},
+        selectedAccount: "U18282243",
+        sessionId: "68a00752.00000103"
+      }
+    }
+  end
+
+  # IBKR ping response
+  let(:ping_response) do
+    {
+      topic: "tic",
+      alive: true,
+      id: mock_session_token,
+      lastAccessed: Time.now.to_i * 1000
+    }
+  end
+
+  # IBKR heartbeat message
+  let(:heartbeat_message) do
+    {
+      topic: "system",
+      hb: Time.now.to_i * 1000
+    }
+  end
+
+  # Mock OAuth client with ping method for /tickle endpoint
+  before do
+    allow(oauth_client).to receive(:ping).and_return(tickle_response)
   end
 end
 
 RSpec.shared_context "with WebSocket subscriptions" do
   include_context "with WebSocket authentication"
+
+  # IBKR account summary subscription response
+  let(:account_summary_response) do
+    {
+      result: [],
+      topic: "ssd+U18282243"
+    }
+  end
+
+  # IBKR account summary data update
+  let(:account_summary_data) do
+    {
+      topic: "ssd+U18282243",
+      args: {
+        data: [
+          {
+            key: "NetLiquidation-S",
+            value: "125000.50",
+            currency: "USD"
+          },
+          {
+            key: "TotalCashValue-S", 
+            value: "25000.00",
+            currency: "USD"
+          }
+        ]
+      }
+    }
+  end
+
+  # IBKR subscription error (e.g., invalid topic)
+  let(:subscription_error_response) do
+    {
+      error: "Topic unknown",
+      code: 1,
+      topic: "invalid_topic"
+    }
+  end
+
+  # IBKR subscription success response
+  let(:subscription_success_response) do
+    {
+      status: "success",
+      message: "Subscription confirmed"
+    }
+  end
 
   let(:market_data_subscription) do
     {
@@ -97,7 +217,7 @@ RSpec.shared_context "with WebSocket subscriptions" do
 
   let(:portfolio_subscription) do
     {
-      type: "subscribe",
+      type: "subscribe", 
       channel: "portfolio",
       account_id: "DU123456"
     }
@@ -108,24 +228,6 @@ RSpec.shared_context "with WebSocket subscriptions" do
       type: "subscribe",
       channel: "orders",
       account_id: "DU123456"
-    }
-  end
-
-  let(:subscription_success_response) do
-    {
-      type: "subscription_response",
-      status: "success",
-      subscription_id: "sub_123",
-      channel: "market_data"
-    }
-  end
-
-  let(:subscription_error_response) do
-    {
-      type: "subscription_response",
-      status: "error",
-      error: "invalid_symbol",
-      message: "Symbol not found"
     }
   end
 end
@@ -246,6 +348,9 @@ end
 # Mock EventMachine for testing without actual event loop
 RSpec.shared_context "with mocked EventMachine" do
   before do
+    # Mock EventMachine.reactor_running? to return true 
+    allow(EventMachine).to receive(:reactor_running?).and_return(true)
+    
     # Mock EventMachine.run to execute block immediately
     allow(EventMachine).to receive(:run) do |&block|
       block.call if block
@@ -254,15 +359,18 @@ RSpec.shared_context "with mocked EventMachine" do
     # Mock EventMachine.stop
     allow(EventMachine).to receive(:stop)
     
-    # Mock EventMachine.next_tick to execute immediately
+    # Mock EventMachine.next_tick to execute immediately  
     allow(EventMachine).to receive(:next_tick) do |&block|
       block.call if block
     end
     
-    # Mock EventMachine timers
+    # Mock EventMachine timers - Execute short delays immediately, skip long delays (timeouts)
     allow(EventMachine).to receive(:add_timer) do |delay, &block|
-      # For testing, execute timer callbacks immediately
-      block.call if block
+      # Execute callbacks for short delays (like ping timers) but not long delays (timeouts)
+      if delay <= 2  # Execute timers with delay <= 2 seconds (ping timers)
+        block.call if block
+      end
+      # Return a timer mock for all cases
       double("timer", cancel: nil)
     end
     
@@ -271,3 +379,4 @@ RSpec.shared_context "with mocked EventMachine" do
     end
   end
 end
+

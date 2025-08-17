@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "configuration"
+
 module Ibkr
   module WebSocket
     # WebSocket message router responsible for parsing and routing incoming
@@ -186,7 +188,13 @@ module Ibkr
       # @param message [Hash] WebSocket message
       # @return [String] Message type
       def extract_message_type(message)
-        # Check for explicit type field first
+        # Handle subscription errors (messages with subscription_id and error) - prioritize over generic errors
+        if (message.key?(:subscription_id) || message.key?("subscription_id")) && 
+           (message.key?(:error) || message.key?("error"))
+          return "subscription_error"
+        end
+        
+        # Check for explicit type field
         type = message[:type] || message["type"]
         return type if type
         
@@ -297,9 +305,9 @@ module Ibkr
         processing_time = Time.now - start_time
         @routing_statistics[:processing_times] << processing_time
         
-        # Keep only last 1000 processing times for memory efficiency
-        if @routing_statistics[:processing_times].size > 1000
-          @routing_statistics[:processing_times].shift(100)
+        # Keep only last N processing times for memory efficiency
+        if @routing_statistics[:processing_times].size > Configuration::MAX_PROCESSING_TIMES
+          @routing_statistics[:processing_times].shift(Configuration::PROCESSING_TIMES_CLEANUP_BATCH)
         end
         
         emit(:message_routed, type: message_type, processing_time: processing_time)
@@ -335,7 +343,17 @@ module Ibkr
       end
 
       def handle_market_data(message)
-        @websocket_client.emit(:market_data, message[:data] || message)
+        # Merge symbol and metadata with the data for complete market data event
+        if message[:data] && message[:symbol]
+          market_data = message[:data].merge(
+            symbol: message[:symbol],
+            subscription_id: message[:subscription_id],
+            timestamp: message[:timestamp]
+          )
+          @websocket_client.emit(:market_data, market_data)
+        else
+          @websocket_client.emit(:market_data, message)
+        end
       end
 
       def handle_portfolio_update(message)
@@ -343,7 +361,18 @@ module Ibkr
       end
 
       def handle_order_update(message)
-        @websocket_client.emit(:order_update, message[:data] || message)
+        # Merge order metadata with the data for complete order update event
+        if message[:data]
+          order_data = message[:data].merge(
+            order_id: message[:order_id],
+            account_id: message[:account_id],
+            status: message[:status],
+            timestamp: message[:timestamp]
+          ).compact
+          @websocket_client.emit(:order_update, order_data)
+        else
+          @websocket_client.emit(:order_update, message)
+        end
       end
 
       def handle_trade_data(message)
@@ -373,10 +402,17 @@ module Ibkr
       end
 
       def handle_error_message(message)
+        # Include error code in the message for better error identification
+        error_msg = message[:message] || "Server error"
+        if message[:error]
+          error_msg = "#{message[:error]}: #{error_msg}"
+        end
+        
         error = MessageProcessingError.new(
-          message[:message] || "Server error",
+          error_msg,
           context: {
             error_code: message[:code],
+            error_type: message[:error],
             server_message: message
           }
         )
@@ -404,7 +440,7 @@ module Ibkr
             ))
           elsif authenticated == true && connected == true
             # Set the connection as authenticated
-            @websocket_client.connection_manager.instance_variable_set(:@state, :authenticated)
+            @websocket_client.connection_manager.set_authenticated!
             @websocket_client.emit(:authenticated)
           else
             @websocket_client.emit(:system_message, message)

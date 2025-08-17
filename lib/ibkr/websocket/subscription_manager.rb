@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "securerandom"
+require_relative "configuration"
 
 module Ibkr
   module WebSocket
@@ -23,15 +24,10 @@ module Ibkr
                      :subscription_removed, :rate_limit_hit
 
       # Default subscription limits
-      DEFAULT_LIMITS = {
-        total: 100,
-        market_data: 50,
-        portfolio: 5,
-        orders: 10
-      }.freeze
+      DEFAULT_LIMITS = Configuration::DEFAULT_SUBSCRIPTION_LIMITS
 
       # Default rate limits (requests per minute)
-      DEFAULT_RATE_LIMIT = 60
+      DEFAULT_RATE_LIMIT = Configuration::DEFAULT_RATE_LIMIT
 
       attr_reader :subscriptions, :subscription_count, :rate_limited_until
 
@@ -87,7 +83,7 @@ module Ibkr
         subscription = @subscriptions.delete(subscription_id)
         return false unless subscription
 
-        send_unsubscription_message(subscription)
+        send_unsubscription_message(subscription_id, subscription)
         emit(:subscription_removed, subscription_id: subscription_id)
         
         true
@@ -96,11 +92,19 @@ module Ibkr
       # Remove all subscriptions
       #
       # @return [Integer] Number of subscriptions removed
-      def unsubscribe_all
+      def unsubscribe_all(send_messages: true)
         count = @subscriptions.size
         
-        @subscriptions.keys.each do |subscription_id|
-          unsubscribe(subscription_id)
+        if send_messages
+          @subscriptions.keys.each do |subscription_id|
+            unsubscribe(subscription_id)
+          end
+        else
+          # Just clear subscriptions without sending messages (for disconnect cleanup)
+          @subscriptions.each do |subscription_id, subscription|
+            emit(:subscription_removed, subscription_id: subscription_id)
+          end
+          @subscriptions.clear
         end
         
         count
@@ -176,28 +180,6 @@ module Ibkr
         end
       end
 
-      # Check if currently rate limited
-      #
-      # @return [Boolean] True if rate limited
-      def rate_limited?
-        return false unless @rate_limited_until
-        Time.now < @rate_limited_until
-      end
-
-      # Get rate limit retry delay
-      #
-      # @return [Integer, nil] Seconds until rate limit resets, or nil if not rate limited
-      def rate_limit_retry_after
-        return nil unless rate_limited?
-        (@rate_limited_until - Time.now).to_i
-      end
-
-      # Get rate limit reset time
-      #
-      # @return [Time, nil] Time when rate limit resets, or nil if not rate limited
-      def rate_limit_resets_at
-        @rate_limited_until
-      end
 
       # Get subscription statistics
       #
@@ -253,6 +235,9 @@ module Ibkr
               **sub_data[:parameters]
             }
             
+            # Validate the request (same validation as subscribe method)
+            validate_subscription_request!(request)
+            
             # Use existing subscription ID if provided
             subscription_id = sub_data[:subscription_id] || generate_subscription_id
             subscription = create_subscription_record(subscription_id, request)
@@ -270,6 +255,72 @@ module Ibkr
         end
         
         { restored: restored, failed: failed }
+      end
+
+      # Get subscription errors
+      #
+      # @return [Array<String>] List of subscription IDs that have errors
+      def subscription_errors
+        @subscriptions.select { |_, sub| sub[:status] == :error }.keys
+      end
+
+      # Get last subscription error for a specific subscription
+      #
+      # @param subscription_id [String] Subscription ID
+      # @return [Hash, nil] Error details or nil if no error
+      def last_subscription_error(subscription_id)
+        subscription = @subscriptions[subscription_id]
+        return nil unless subscription && subscription[:status] == :error
+        
+        {
+          error: subscription[:error],
+          message: subscription[:error_message],
+          subscription_id: subscription_id,
+          timestamp: subscription[:updated_at] || subscription[:created_at]
+        }
+      end
+
+      # Get maximum subscriptions allowed
+      #
+      # @return [Integer] Maximum total subscriptions
+      def max_subscriptions
+        @subscription_limits[:total]
+      end
+
+      # Get subscription limits per channel
+      #
+      # @return [Hash] Channel-specific subscription limits
+      def max_subscriptions_per_channel
+        @subscription_limits.reject { |k, _| k == :total }
+      end
+
+      # Get subscription rate limit
+      #
+      # @return [Integer] Maximum subscriptions per minute
+      def subscription_rate_limit
+        @rate_limit
+      end
+
+      # Check if currently rate limited
+      #
+      # @return [Boolean] True if rate limited
+      def rate_limited?
+        @rate_limited_until && Time.now < @rate_limited_until
+      end
+
+      # Get retry after time for rate limit
+      #
+      # @return [Integer, nil] Seconds to retry after, or nil if not rate limited
+      def rate_limit_retry_after
+        return nil unless rate_limited?
+        (@rate_limited_until - Time.now).ceil
+      end
+
+      # Get rate limit reset time
+      #
+      # @return [Time, nil] Time when rate limit resets
+      def rate_limit_resets_at
+        @rate_limited_until
       end
 
       private
@@ -320,6 +371,12 @@ module Ibkr
       # @raise [ArgumentError] If request is invalid
       def validate_subscription_request!(request)
         raise ArgumentError, "Channel is required" unless request[:channel]
+        
+        # Validate known channels
+        valid_channels = ["market_data", "portfolio", "orders", "account_summary"]
+        unless valid_channels.include?(request[:channel])
+          raise ArgumentError, "Unknown channel: #{request[:channel]}"
+        end
         
         case request[:channel]
         when "market_data"
@@ -390,7 +447,7 @@ module Ibkr
       def record_rate_limit_request
         @rate_limit_requests << Time.now
         # Clean up old requests (keep only last hour)
-        @rate_limit_requests.reject! { |t| t < Time.now - 3600 }
+        @rate_limit_requests.reject! { |t| t < Time.now - Configuration::RATE_LIMIT_HISTORY_DURATION }
       end
 
       # Send subscription message to WebSocket
@@ -401,12 +458,12 @@ module Ibkr
         when "account_summary"
           # IBKR account summary subscription format: ssd+{accountId}+{parameters}
           params = {
-            keys: subscription[:keys] || ["AccruedCash-S", "ExcessLiquidity-S", "NetLiquidation-S"],
-            fields: subscription[:fields] || ["currency", "monetaryValue"]
+            keys: subscription[:keys] || Configuration::DEFAULT_ACCOUNT_SUMMARY_KEYS,
+            fields: subscription[:fields] || Configuration::DEFAULT_ACCOUNT_SUMMARY_FIELDS
           }
           
-          ibkr_message = "ssd+#{subscription[:account_id]}+#{params.to_json}"
-          @websocket_client.connection_manager.instance_variable_get(:@websocket).send(ibkr_message)
+          ibkr_message = Configuration::ACCOUNT_SUMMARY_SUBSCRIBE_FORMAT % [subscription[:account_id], params.to_json]
+          @websocket_client.connection_manager.send_raw_message(ibkr_message)
           
         when "market_data"
           # Standard market data subscription format (to be implemented)
@@ -440,18 +497,18 @@ module Ibkr
       # Send unsubscription message to WebSocket
       #
       # @param subscription [Hash] Subscription record
-      def send_unsubscription_message(subscription)
+      def send_unsubscription_message(subscription_id, subscription)
         case subscription[:channel]
         when "account_summary"
           # IBKR account summary unsubscription format: usd+{accountId}
-          ibkr_message = "usd+#{subscription[:account_id]}"
-          @websocket_client.connection_manager.instance_variable_get(:@websocket).send(ibkr_message)
+          ibkr_message = Configuration::ACCOUNT_SUMMARY_UNSUBSCRIBE_FORMAT % subscription[:account_id]
+          @websocket_client.connection_manager.send_raw_message(ibkr_message)
           
         else
           # Standard unsubscription format for other channels
           message = {
             type: "unsubscribe",
-            subscription_id: subscription[:id]
+            subscription_id: subscription_id
           }
           
           @websocket_client.send_message(message)
@@ -489,6 +546,18 @@ module Ibkr
         if response[:error] == "rate_limit_exceeded" && response[:retry_after]
           @rate_limited_until = Time.now + response[:retry_after]
           emit(:rate_limit_hit, retry_after: response[:retry_after])
+          
+          # Also emit as general error for client error tracking
+          error_message = "#{response[:error]}: #{response[:message]}"
+          error = SubscriptionError.new(
+            error_message,
+            context: {
+              subscription_id: subscription_id,
+              retry_after: response[:retry_after],
+              error_type: response[:error]
+            }
+          )
+          @websocket_client.emit(:error, error)
         end
         
         emit(:subscription_failed, 

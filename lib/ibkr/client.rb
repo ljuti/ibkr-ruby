@@ -151,6 +151,11 @@ module Ibkr
     def account_id
       @active_account_id
     end
+    
+    # Check if client is in live mode
+    def live_mode?
+      @live
+    end
 
     # Legacy method for setting account ID (deprecated).
     #
@@ -246,6 +251,16 @@ module Ibkr
     #
     def websocket
       @websocket ||= WebSocket::Client.new(self)
+    end
+    
+    # Streaming interface for WebSocket operations
+    def streaming
+      @streaming ||= WebSocket::Streaming.new(websocket)
+    end
+    
+    # Market data interface for real-time data
+    def real_time_data
+      @real_time_data ||= WebSocket::MarketData.new(websocket)
     end
 
     # Fluent interface for WebSocket connection

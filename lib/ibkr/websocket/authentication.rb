@@ -5,6 +5,7 @@ require "base64"
 require "json"
 require "cgi"
 require "openssl"
+require_relative "configuration"
 
 module Ibkr
   module WebSocket
@@ -77,13 +78,7 @@ module Ibkr
       #
       # @return [String] WebSocket endpoint URL
       def websocket_endpoint
-        case @ibkr_client.environment
-        when "production", "live"
-          "wss://api.ibkr.com/v1/api/ws"
-        else
-          # IBKR uses same endpoint for all environments
-          "wss://api.ibkr.com/v1/api/ws"
-        end
+        Configuration.websocket_endpoint(@ibkr_client.environment)
       end
 
       # Get authentication headers for WebSocket connection
@@ -97,14 +92,9 @@ module Ibkr
         
         cookie_value = "api=#{@session_token}"
         
-        {
-          "Connection" => "Upgrade",
-          "Upgrade" => "websocket", 
-          "Origin" => "interactivebrokers.github.io",
-          "User-Agent" => "IBKR-Ruby-#{Ibkr::VERSION}",
-          "X-IBKR-Client-Version" => Ibkr::VERSION,
+        Configuration.default_headers(Ibkr::VERSION).merge(
           "Cookie" => cookie_value
-        }
+        )
       end
 
       # Check if current session token is valid

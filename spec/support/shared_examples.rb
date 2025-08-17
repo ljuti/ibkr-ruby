@@ -72,11 +72,26 @@ end
 
 RSpec.shared_examples "a WebSocket connection lifecycle" do
   it "handles connection establishment" do
-    expect { subject.connect }.to change { subject.connected? }.from(false).to(true)
+    # WebSocket connections require full open + auth cycle
+    expect { 
+      subject.connect
+      if respond_to?(:simulate_websocket_open)
+        simulate_websocket_open
+        if respond_to?(:auth_status_message) && respond_to?(:simulate_websocket_message)
+          simulate_websocket_message(auth_status_message)
+        end
+      end
+    }.to change { subject.connected? }.from(false).to(true)
   end
 
   it "handles connection closure" do
     subject.connect
+    if respond_to?(:simulate_websocket_open)
+      simulate_websocket_open
+      if respond_to?(:auth_status_message) && respond_to?(:simulate_websocket_message)
+        simulate_websocket_message(auth_status_message)
+      end
+    end
     expect { subject.disconnect }.to change { subject.connected? }.from(true).to(false)
   end
 
@@ -84,7 +99,15 @@ RSpec.shared_examples "a WebSocket connection lifecycle" do
     expect(subject.connection_state).to eq(:disconnected)
     
     subject.connect
-    expect(subject.connection_state).to eq(:connected)
+    if respond_to?(:simulate_websocket_open)
+      simulate_websocket_open
+      if respond_to?(:auth_status_message) && respond_to?(:simulate_websocket_message)
+        simulate_websocket_message(auth_status_message)
+      end
+    end
+    # After full authentication cycle, expect authenticated state
+    expected_state = respond_to?(:auth_status_message) ? :authenticated : :connected
+    expect(subject.connection_state).to eq(expected_state)
     
     subject.disconnect
     expect(subject.connection_state).to eq(:disconnected)
@@ -128,12 +151,13 @@ RSpec.shared_examples "a WebSocket subscription manager" do
   end
 
   it "handles subscription limits" do
-    allow(subject).to receive(:max_subscriptions).and_return(2)
+    # Set subscription limits directly
+    subject.instance_variable_get(:@subscription_limits)[:total] = 2
     
-    subject.subscribe({ channel: "test1" })
-    subject.subscribe({ channel: "test2" })
+    subject.subscribe({ channel: "market_data", symbols: ["AAPL"] })
+    subject.subscribe({ channel: "market_data", symbols: ["GOOGL"] })
     
-    expect { subject.subscribe({ channel: "test3" }) }.to raise_error(Ibkr::ApiError::RateLimitError)
+    expect { subject.subscribe({ channel: "market_data", symbols: ["MSFT"] }) }.to raise_error(Ibkr::WebSocket::SubscriptionError)
   end
 end
 

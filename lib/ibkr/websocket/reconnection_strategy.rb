@@ -110,11 +110,17 @@ module Ibkr
           jitter_range = delay * 0.25
           jitter = (rand * 2 - 1) * jitter_range
           delay += jitter
+          
+          # Re-apply maximum delay cap after jitter
+          delay = [@max_delay, delay].min
         end
         
         # Ensure minimum delay
         [delay, 0.1].max
       end
+      
+      # Alias for compatibility with shared examples
+      alias_method :max_reconnect_delay, :max_delay
 
       # Attempt reconnection
       #

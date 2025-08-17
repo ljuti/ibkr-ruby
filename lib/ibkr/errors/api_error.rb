@@ -44,6 +44,27 @@ module Ibkr
       end
     end
 
+    class RateLimitError < ApiError
+      attr_reader :retry_after, :limit, :remaining, :reset_time
+
+      def initialize(message = "Rate limit exceeded", retry_after: nil, limit: nil, remaining: nil, reset_time: nil, **options)
+        super(message, **options)
+        @retry_after = retry_after
+        @limit = limit
+        @remaining = remaining
+        @reset_time = reset_time
+      end
+
+      def to_h
+        super.merge(
+          retry_after: retry_after,
+          limit: limit,
+          remaining: remaining,
+          reset_time: reset_time
+        ).compact
+      end
+    end
+
     # Factory method to create appropriate API error with enhanced context
     def self.from_response(response, message: nil, context: {})
       error_details = extract_error_details(response)

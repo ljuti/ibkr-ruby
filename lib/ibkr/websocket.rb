@@ -8,6 +8,8 @@ require_relative "websocket/subscription_manager"
 require_relative "websocket/message_router"
 require_relative "websocket/reconnection_strategy"
 require_relative "websocket/client"
+require_relative "websocket/streaming"
+require_relative "websocket/market_data"
 
 module Ibkr
   # WebSocket module providing real-time streaming capabilities for the IBKR gem
@@ -48,5 +50,16 @@ module Ibkr
   #   websocket.stop_eventmachine!
   #
   module WebSocket
+    class << self
+      # Get or initialize the configuration
+      def configuration
+        @configuration ||= Configuration.new
+      end
+
+      # Configure WebSocket settings
+      def configure
+        yield(configuration) if block_given?
+      end
+    end
   end
 end

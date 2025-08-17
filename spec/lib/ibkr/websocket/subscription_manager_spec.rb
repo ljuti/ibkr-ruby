@@ -6,9 +6,11 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
   include_context "with WebSocket test environment"
   include_context "with WebSocket subscriptions"
 
-  let(:websocket_client) { double("websocket_client", send_message: true, authenticated?: true) }
+  let(:websocket_client) { double("websocket_client", send_message: true, authenticated?: true, emit: true) }
   let(:subscription_manager) { described_class.new(websocket_client) }
   let(:subscription_request) { market_data_subscription }
+  
+  subject { subscription_manager }
 
   describe "initialization" do
     context "when creating subscription manager" do
@@ -162,11 +164,16 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
         expect(subscription_manager.active_subscriptions).not_to include(subscription_id)
         expect(subscription_manager.get_subscription(subscription_id)).to be_nil
 
-        # And unsubscribe message should be sent
-        expect(websocket_client).to have_received(:send_message) do |message|
-          expect(message[:type]).to eq("unsubscribe")
-          expect(message[:subscription_id]).to eq(subscription_id)
-        end
+        # And unsubscribe message should be sent (2 calls total: subscribe + unsubscribe)
+        expect(websocket_client).to have_received(:send_message).twice
+        
+        # Check the last call was an unsubscribe message
+        expect(websocket_client).to have_received(:send_message).with(
+          hash_including(
+            type: "unsubscribe",
+            subscription_id: subscription_id
+          )
+        )
       end
 
       it "handles unsubscribe from non-existent subscription gracefully" do
@@ -185,7 +192,7 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
         # Given multiple active subscriptions
         3.times do |i|
           subscription_id = subscription_manager.subscribe(
-            channel: "test#{i}",
+            channel: "market_data",
             symbols: ["STOCK#{i}"]
           )
           subscription_manager.handle_subscription_response(
@@ -209,49 +216,45 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
     context "when enforcing subscription limits" do
       it "enforces maximum subscription limit" do
         # Given subscription manager with limit
-        allow(subscription_manager).to receive(:max_subscriptions).and_return(2)
+        subscription_manager.instance_variable_get(:@subscription_limits)[:total] = 2
 
         # When creating subscriptions up to limit
-        subscription_manager.subscribe(channel: "test1")
-        subscription_manager.subscribe(channel: "test2")
+        subscription_manager.subscribe(channel: "market_data", symbols: ["AAPL"])
+        subscription_manager.subscribe(channel: "market_data", symbols: ["GOOGL"])
 
         # Then limit should be enforced
         expect {
-          subscription_manager.subscribe(channel: "test3")
-        }.to raise_error(Ibkr::ApiError::RateLimitError, /maximum subscriptions reached/i)
+          subscription_manager.subscribe(channel: "market_data", symbols: ["MSFT"])
+        }.to raise_error(Ibkr::WebSocket::SubscriptionError, /limit exceeded/i)
       end
 
       it "tracks subscription limits by channel type" do
         # Given channel-specific limits
-        allow(subscription_manager).to receive(:max_subscriptions_per_channel).and_return(
-          "market_data" => 50,
-          "portfolio" => 5,
-          "orders" => 10
-        )
+        subscription_manager.instance_variable_get(:@subscription_limits)[:portfolio] = 5
 
         # When creating subscriptions for specific channel
-        5.times { |i| subscription_manager.subscribe(channel: "portfolio", account: "DU#{i}") }
+        5.times { |i| subscription_manager.subscribe(channel: "portfolio", account_id: "DU#{i}") }
 
         # Then channel limit should be enforced
         expect {
-          subscription_manager.subscribe(channel: "portfolio", account: "DU6")
-        }.to raise_error(Ibkr::ApiError::RateLimitError, /portfolio.*limit/i)
+          subscription_manager.subscribe(channel: "portfolio", account_id: "DU6")
+        }.to raise_error(Ibkr::WebSocket::SubscriptionError, /limit exceeded.*portfolio/i)
       end
 
       it "implements subscription rate limiting" do
         # Given rate limiting configuration
-        allow(subscription_manager).to receive(:subscription_rate_limit).and_return(10) # 10 per minute
+        subscription_manager.instance_variable_set(:@rate_limit, 10) # 10 per minute
 
         # When creating many subscriptions rapidly
         start_time = Time.now
         allow(Time).to receive(:now).and_return(start_time)
 
-        10.times { |i| subscription_manager.subscribe(channel: "test#{i}") }
+        10.times { |i| subscription_manager.subscribe(channel: "market_data", symbols: ["STOCK#{i}"]) }
 
         # Then rate limit should be enforced
         expect {
-          subscription_manager.subscribe(channel: "test_over_limit")
-        }.to raise_error(Ibkr::ApiError::RateLimitError, /rate limit exceeded/i)
+          subscription_manager.subscribe(channel: "market_data", symbols: ["OVER_LIMIT"])
+        }.to raise_error(Ibkr::WebSocket::SubscriptionError, /rate limit exceeded/i)
       end
     end
 
@@ -347,8 +350,8 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
       it "tracks subscription statistics" do
         # Given various subscriptions
         5.times { |i| subscription_manager.subscribe(channel: "market_data", symbols: ["STOCK#{i}"]) }
-        3.times { |i| subscription_manager.subscribe(channel: "portfolio", account: "DU#{i}") }
-        2.times { |i| subscription_manager.subscribe(channel: "orders", account: "DU#{i}") }
+        3.times { |i| subscription_manager.subscribe(channel: "portfolio", account_id: "DU#{i}") }
+        2.times { |i| subscription_manager.subscribe(channel: "orders", account_id: "DU#{i}") }
 
         # When checking statistics
         stats = subscription_manager.subscription_statistics
@@ -435,7 +438,10 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
   describe "performance and memory management" do
     context "when handling high subscription volumes", websocket_performance: true do
       it "efficiently manages large numbers of subscriptions" do
-        # Given many subscriptions
+        # Given many subscriptions (adjust limits for performance test)
+        subscription_manager.instance_variable_get(:@subscription_limits)[:total] = 2000
+        subscription_manager.instance_variable_get(:@subscription_limits)[:market_data] = 2000
+        subscription_manager.instance_variable_set(:@rate_limit, 2000) # No rate limiting for performance test
         subscription_count = 1000
         
         start_time = Time.now
@@ -458,9 +464,13 @@ RSpec.describe Ibkr::WebSocket::SubscriptionManager do
       end
 
       it "cleans up subscription memory efficiently" do
-        # Given many subscriptions
+        # Given many subscriptions (adjust limits for performance test)
+        subscription_manager.instance_variable_get(:@subscription_limits)[:total] = 200
+        subscription_manager.instance_variable_get(:@subscription_limits)[:market_data] = 200
+        subscription_manager.instance_variable_set(:@rate_limit, 200) # No rate limiting for performance test
+        
         100.times do |i|
-          id = subscription_manager.subscribe(channel: "test#{i}")
+          id = subscription_manager.subscribe(channel: "market_data", symbols: ["STOCK#{i}"])
           subscription_manager.handle_subscription_response(subscription_id: id, status: "success")
         end
 

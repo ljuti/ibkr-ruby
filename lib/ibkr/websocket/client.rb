@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "eventmachine"
+require_relative "configuration"
+require_relative "connection_status"
 
 module Ibkr
   module WebSocket
@@ -43,8 +45,35 @@ module Ibkr
       attr_reader :ibkr_client, :connection_manager, :subscription_manager, 
                   :message_router, :reconnection_strategy
 
+      # Delegate methods to the underlying IBKR client
+      def oauth_client
+        @ibkr_client.oauth_client
+      end
+
+      def account_id
+        @ibkr_client.account_id || @ibkr_client.instance_variable_get(:@default_account_id)
+      end
+
+      def live_mode?
+        @ibkr_client.live_mode?
+      end
+
+      # Configuration access methods
+      def reconnect_attempts
+        @reconnection_strategy.reconnect_attempts
+      end
+
+      def heartbeat_interval
+        @connection_manager.instance_variable_get(:@heartbeat_interval)
+      end
+
+      def connection_timeout
+        @connection_manager.instance_variable_get(:@connection_timeout)
+      end
+
       # @param ibkr_client [Ibkr::Client] Authenticated IBKR client
       def initialize(ibkr_client)
+        raise ArgumentError, "IBKR client is required" if ibkr_client.nil?
         @ibkr_client = ibkr_client
         @connection_manager = ConnectionManager.new(self)
         @subscription_manager = SubscriptionManager.new(self)
@@ -52,6 +81,14 @@ module Ibkr
         @reconnection_strategy = ReconnectionStrategy.new(self)
         @circuit_breaker = CircuitBreaker.new
         @message_errors = []
+        
+        # Initialize state tracking variables
+        @authentication_timestamp = nil
+        @last_auth_error = nil
+        @reauthentication_required = false
+        @last_heartbeat_response = nil
+        @heartbeat_missed_count = 0
+        @connection_start_time = nil
         
         initialize_events
         setup_event_routing
@@ -74,6 +111,7 @@ module Ibkr
           )
         end
         
+        @connection_start_time = Time.now
         @connection_manager.connect
         self
       end
@@ -120,18 +158,24 @@ module Ibkr
 
       # Get detailed connection status for debugging
       #
-      # @return [Hash] Detailed connection status
+      # @return [ConnectionStatus] Detailed connection status
       def connection_debug_status
-        {
+        ConnectionStatus.new(
           state: @connection_manager.state,
           connected: connected?,
           authenticated: authenticated?,
-          websocket_ready_state: @connection_manager.instance_variable_get(:@websocket)&.ready_state,
-          websocket_nil: @connection_manager.instance_variable_get(:@websocket).nil?,
+          healthy: connection_healthy?,
+          connection_id: @connection_manager.connection_id,
+          uptime: @connection_manager.uptime,
+          last_ping_at: @connection_manager.last_ping_at,
+          last_pong_at: @connection_manager.last_pong_at,
+          heartbeat_lag: @connection_manager.send(:heartbeat_lag),
+          websocket_ready_state: @connection_manager.websocket&.ready_state,
+          websocket_nil: @connection_manager.websocket.nil?,
           websocket_url: @connection_manager.websocket_url,
           eventmachine_running: EventMachine.reactor_running?,
           has_errors: @message_errors.any?
-        }
+        )
       end
 
       # Subscribe to market data for symbols
@@ -231,8 +275,8 @@ module Ibkr
       # Unsubscribe from all active subscriptions
       #
       # @return [Integer] Number of subscriptions removed
-      def unsubscribe_all
-        @subscription_manager.unsubscribe_all
+      def unsubscribe_all(send_messages: true)
+        @subscription_manager.unsubscribe_all(send_messages: send_messages)
       end
 
       # Get all active subscription IDs
@@ -464,6 +508,131 @@ module Ibkr
         self
       end
 
+      # Additional methods expected by specs
+
+      # Get last error message
+      #
+      # @return [String, nil] Last error message
+      def last_error
+        return nil if @message_errors.empty?
+        error_data = @message_errors.last
+        error_data[:error]&.message || error_data[:message] || "Unknown error"
+      end
+
+      # Get session ID
+      #
+      # @return [String, nil] Current session ID
+      def session_id
+        # Try to get from connection manager state or authentication
+        return nil unless @connection_manager.authenticated?
+        @connection_manager.instance_variable_get(:@authentication)&.instance_variable_get(:@session_token)
+      end
+
+      # Get error count
+      #
+      # @return [Integer] Number of errors
+      def error_count
+        @message_errors.size
+      end
+
+      # Get authentication timestamp
+      #
+      # @return [Time, nil] Time of last authentication
+      def authentication_timestamp
+        @authentication_timestamp
+      end
+
+      # Get last authentication error
+      #
+      # @return [String, nil] Last authentication error
+      def last_auth_error
+        @last_auth_error
+      end
+
+      # Check if reauthentication is required
+      #
+      # @return [Boolean] True if reauthentication is required
+      def reauthentication_required?
+        @reauthentication_required || false
+      end
+
+      # Get last heartbeat response time
+      #
+      # @return [Time, nil] Time of last heartbeat response
+      def last_heartbeat_response
+        @last_heartbeat_response
+      end
+
+      # Get heartbeat missed count
+      #
+      # @return [Integer] Number of missed heartbeats
+      def heartbeat_missed_count
+        @heartbeat_missed_count || 0
+      end
+
+      # Get messages processed count
+      #
+      # @return [Integer] Number of messages processed
+      def messages_processed
+        @message_router.routing_statistics[:total_messages] || 0
+      end
+
+      # Get average message processing time
+      #
+      # @return [Float] Average processing time in seconds
+      def average_message_processing_time
+        times = @message_router.routing_statistics[:processing_times] || []
+        return 0.0 if times.empty?
+        times.sum.to_f / times.size
+      end
+
+      # Get messages per second
+      #
+      # @return [Float] Messages processed per second
+      def messages_per_second
+        return 0.0 unless @connection_start_time
+        elapsed = Time.now - @connection_start_time
+        return 0.0 if elapsed <= 0
+        messages_processed.to_f / elapsed
+      end
+
+      # Get subscription errors
+      #
+      # @return [Array<String>] List of subscription IDs that have errors
+      def subscription_errors
+        @subscription_manager.subscription_errors
+      end
+
+      # Get last subscription error for a specific subscription
+      #
+      # @param subscription_id [String] Subscription ID
+      # @return [Hash, nil] Error details or nil if no error
+      def last_subscription_error(subscription_id)
+        @subscription_manager.last_subscription_error(subscription_id)
+      end
+
+      # Get next reconnection delay
+      #
+      # @param attempt [Integer] Attempt number
+      # @return [Float] Delay in seconds for next reconnection attempt
+      def next_reconnect_delay(attempt)
+        @reconnection_strategy.next_reconnect_delay(attempt)
+      end
+
+      # Get maximum reconnection delay
+      #
+      # @return [Float] Maximum delay in seconds
+      def max_reconnect_delay
+        @reconnection_strategy.instance_variable_get(:@max_delay)
+      end
+
+      # Get rate limit retry after time
+      #
+      # @return [Integer, nil] Seconds until rate limit resets
+      def rate_limit_retry_after
+        @subscription_manager.rate_limit_retry_after
+      end
+
       private
 
       # Setup event routing between components
@@ -471,9 +640,16 @@ module Ibkr
         # Forward connection manager events
         @connection_manager.on(:connected) { emit(:connected) }
         @connection_manager.on(:authenticated) { emit(:authenticated) }
-        @connection_manager.on(:disconnected) { |data| emit(:disconnected, data) }
+        @connection_manager.on(:disconnected) do |data|
+          # Clear all subscriptions on disconnect without sending messages
+          @subscription_manager.unsubscribe_all(send_messages: false)
+          emit(:disconnected, data)
+        end
         @connection_manager.on(:error) { |error| handle_connection_error(error) }
-        @connection_manager.on(:heartbeat) { |data| emit(:heartbeat, data) }
+        @connection_manager.on(:heartbeat) do |data|
+          @last_heartbeat_response = Time.now
+          emit(:heartbeat, data) 
+        end
         @connection_manager.on(:message_received) { |msg| @message_router.route(msg) }
 
         # Forward subscription manager events
@@ -484,6 +660,9 @@ module Ibkr
         # Forward message router events
         @message_router.on(:routing_error) { |data| handle_message_error(data) }
         @message_router.on(:unknown_message_type) { |data| handle_unknown_message(data) }
+        
+        # Handle direct error events from message processing
+        on(:error) { |error| handle_error_event(error) }
         
         # Handle session events
         on(:session_pending) { |data| handle_session_pending(data) }
@@ -515,6 +694,24 @@ module Ibkr
       # Handle connection errors with circuit breaker
       def handle_connection_error(error)
         @circuit_breaker.record_failure
+        
+        # Capture error details for debugging
+        error_info = {
+          timestamp: Time.now,
+          error: error,
+          message: error.respond_to?(:message) ? error.message : error.to_s
+        }
+        @message_errors << error_info
+        
+        # Keep only last N errors for memory efficiency
+        @message_errors.shift if @message_errors.size > Configuration::MAX_MESSAGE_ERRORS
+        
+        # Handle authentication-specific errors
+        if error.is_a?(Ibkr::AuthenticationError) || error.to_s.include?("authentication") || error.to_s.include?("invalid_token")
+          @last_auth_error = error_info[:message]
+          @reauthentication_required = true
+        end
+        
         emit(:error, error)
       end
 
@@ -528,8 +725,8 @@ module Ibkr
         
         @message_errors << error_info
         
-        # Keep only last 100 errors for memory efficiency
-        @message_errors.shift if @message_errors.size > 100
+        # Keep only last N errors for memory efficiency
+        @message_errors.shift if @message_errors.size > Configuration::MAX_MESSAGE_ERRORS
         
         emit(:error, data[:error])
       end
@@ -543,6 +740,20 @@ module Ibkr
         })
       end
 
+      # Handle direct error events from message processing
+      def handle_error_event(error)
+        error_info = {
+          timestamp: Time.now,
+          error: error,
+          message: error.respond_to?(:message) ? error.message : error.to_s
+        }
+        
+        @message_errors << error_info
+        
+        # Keep only last N errors for memory efficiency
+        @message_errors.shift if @message_errors.size > Configuration::MAX_MESSAGE_ERRORS
+      end
+
       # Handle session pending message
       def handle_session_pending(data)
         # IBKR is waiting for session to be ready - this is normal
@@ -552,7 +763,9 @@ module Ibkr
       # Handle session ready message  
       def handle_session_ready(data)
         # Session is ready - we can now consider ourselves authenticated
-        @connection_manager.instance_variable_set(:@state, :authenticated)
+        @authentication_timestamp = Time.now
+        @reauthentication_required = false
+        @connection_manager.set_authenticated!
         emit(:authenticated)
       end
 
@@ -572,7 +785,8 @@ module Ibkr
 
       # Simple circuit breaker implementation
       class CircuitBreaker
-        def initialize(failure_threshold: 5, timeout: 300)
+        def initialize(failure_threshold: Configuration::CIRCUIT_BREAKER_FAILURE_THRESHOLD, 
+                      timeout: Configuration::CIRCUIT_BREAKER_TIMEOUT)
           @failure_threshold = failure_threshold
           @timeout = timeout
           @failure_count = 0

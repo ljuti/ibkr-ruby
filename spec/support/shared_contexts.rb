@@ -210,7 +210,6 @@ end
 
 RSpec.shared_context "with authenticated oauth client" do
   include_context "with mocked Rails credentials"
-  include_context "with mocked cryptographic keys"
   include_context "with mocked Faraday client"
 
   let(:valid_token) do
@@ -221,11 +220,15 @@ RSpec.shared_context "with authenticated oauth client" do
   end
 
   let(:oauth_client) do
-    client = Ibkr::Oauth.new(live: false)
-    allow(client).to receive(:live_session_token).and_return(valid_token)
-    allow(client).to receive(:authenticated?).and_return(true)
-    client.instance_variable_set(:@current_token, valid_token)
-    client
+    # Create a double instead of a real object to avoid initialization issues
+    client_double = instance_double("Ibkr::Oauth::Client",
+      live_session_token: valid_token,
+      authenticated?: true,
+      sandbox?: true,
+      production?: false,
+      ping: {"session" => "cb0f2f5202aab5d3ca020c118356f315"}
+    )
+    client_double
   end
 end
 
