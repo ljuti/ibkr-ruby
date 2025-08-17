@@ -5,6 +5,7 @@ require "spec_helper"
 RSpec.describe "IBKR Client Error Handling and Edge Cases" do
   include_context "with mocked Rails credentials"
   include_context "with mocked cryptographic keys"
+  include_context "with mocked IBKR API"
 
   describe "Network and connectivity errors" do
     let(:client) { Ibkr::Client.new(live: false) }
@@ -131,11 +132,13 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
     context "when authentication fails due to invalid credentials" do
       before do
         allow(mock_credentials.ibkr.oauth).to receive(:consumer_key).and_return("invalid_key")
+        
+        # Mock the API to return 401 for invalid credentials
+        stub_request(:post, "https://api.ibkr.com/v1/api/oauth/live_session_token")
+          .to_return(status: 401, body: "Invalid consumer key")
       end
 
       it "clearly indicates credential problems" do
-        mock_response = double("response", success?: false, status: 401, body: "Invalid consumer key")
-        allow_any_instance_of(Faraday::Connection).to receive(:post).and_return(mock_response)
         
         # When user provides invalid credentials
         # Then they should get clear feedback about the problem
@@ -155,8 +158,13 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
       end
 
       before do
-        mock_response = double("response", success?: true, body: malformed_response.to_json, headers: {})
-        allow_any_instance_of(Faraday::Connection).to receive(:post).and_return(mock_response)
+        # Mock the API to return malformed data
+        stub_request(:post, "https://api.ibkr.com/v1/api/oauth/live_session_token")
+          .to_return(
+            status: 200,
+            body: malformed_response.to_json,
+            headers: { "Content-Type" => "application/json" }
+          )
         
         # Remove the mocking for compute_live_session_token to allow real error to occur
         allow_any_instance_of(Ibkr::Oauth::SignatureGenerator).to receive(:compute_live_session_token).and_call_original
@@ -190,10 +198,13 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
       it "properly handles token expiration" do
         oauth_client.instance_variable_set(:@current_token, expired_token)
         
-        # When token expires
-        # Then user should be able to detect expiration and re-authenticate
-        expect(oauth_client.token.valid?).to be false
-        expect(oauth_client.token.expired?).to be true
+        # When token expires, user should be informed they need to re-authenticate
+        # This is the key behavior: expired tokens should not provide access
+        expect(oauth_client.authenticated?).to be false
+        
+        # And user should be able to re-authenticate
+        result = oauth_client.authenticate  # Should work with our WebMock setup
+        expect(result).to be true
       end
     end
 

@@ -9,6 +9,7 @@ require "securerandom"
 require "zlib"
 require "stringio"
 require "json"
+require "webmock/rspec"
 
 # Load shared contexts and examples
 require_relative "support/shared_contexts"
@@ -20,6 +21,11 @@ RSpec.configure do |config|
 
   # Disable RSpec exposing methods globally on `Module` and `main`
   config.disable_monkey_patching!
+
+  # Configure WebMock to prevent real HTTP requests
+  config.before(:suite) do
+    WebMock.disable_net_connect!(allow_localhost: false)
+  end
 
   config.expect_with :rspec do |c|
     c.syntax = :expect

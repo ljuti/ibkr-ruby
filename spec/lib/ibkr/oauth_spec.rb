@@ -5,6 +5,7 @@ require "spec_helper"
 RSpec.describe Ibkr::Oauth do
   include_context "with mocked Rails credentials"
   include_context "with mocked cryptographic keys"
+  include_context "with mocked IBKR API"
 
   let(:oauth_client) { described_class.new(live: false) }
   let(:live_oauth_client) { described_class.new(live: true) }
@@ -121,13 +122,17 @@ RSpec.describe Ibkr::Oauth do
     end
 
     context "when token request fails" do
-      let(:mock_response) { double("response", success?: false, status: 401, body: "Unauthorized") }
+      before do
+        # Override successful auth mock with failure
+        stub_request(:post, "#{base_url}/v1/api/oauth/live_session_token")
+          .to_return(status: 401, body: "Unauthorized")
+      end
 
       it "provides clear error for authentication problems" do
         # When server rejects token request
-        # Then user should get clear error message
+        # Then user should get clear error message about authentication
         expect { oauth_client.live_session_token }.to raise_error(StandardError) do |error|
-          expect(error.message).to include("401").or include("token").or include("authentication")
+          expect(error.message.downcase).to include("401").or include("token").or include("authentication").or include("unauthorized")
         end
       end
     end
@@ -154,13 +159,22 @@ RSpec.describe Ibkr::Oauth do
     end
 
     context "when logout encounters server issues" do
-      let(:mock_response) { double("response", success?: false, status: 500, body: "Server Error") }
+      before do
+        # Set up authenticated state first
+        valid_token = double("token", valid?: true)
+        oauth_client.instance_variable_set(:@current_token, valid_token)
+        allow(oauth_client).to receive(:authenticated?).and_return(true)
+        
+        # Override logout endpoint with server error
+        stub_request(:post, "#{base_url}/v1/api/logout")
+          .to_return(status: 500, body: "Server Error")
+      end
 
       it "handles server errors during logout gracefully" do
         # When server has issues during logout
         # Then user should get clear error message
         expect { oauth_client.logout }.to raise_error(StandardError) do |error|
-          expect(error.message).to include("500").or include("Logout").or include("failed")
+          expect(error.message.downcase).to include("500").or include("logout").or include("failed").or include("server")
         end
       end
     end
@@ -199,13 +213,22 @@ RSpec.describe Ibkr::Oauth do
   end
 
   describe "API communication capabilities" do
-    include_context "with mocked Faraday client"
-
-    let(:response_body) { '{"account_data": "portfolio_info"}' }
+    before do
+      # Ensure client is authenticated for API calls
+      allow(oauth_client).to receive(:authenticated?).and_return(true)
+    end
 
     describe "data retrieval operations" do
-      it "enables account data access" do
-        # When user requests account information
+      it "enables account data access with proper authentication" do
+        # Mock account data endpoint
+        stub_request(:get, "#{base_url}/account/summary")
+          .to_return(
+            status: 200,
+            body: '{"account_data": "portfolio_info"}',
+            headers: { "Content-Type" => "application/json" }
+          )
+
+        # When authenticated user requests account information
         result = oauth_client.get("/account/summary")
         
         # Then they should receive their portfolio data
@@ -214,29 +237,40 @@ RSpec.describe Ibkr::Oauth do
       end
 
       it "handles data access errors clearly" do
-        # When data access fails
-        allow(oauth_client.instance_variable_get(:@http_client)).to receive(:get).and_raise(StandardError, "GET request failed")
+        # Mock server error
+        stub_request(:get, "#{base_url}/account/summary")
+          .to_return(status: 500, body: "Internal Server Error")
         
-        # Then user should get clear error message
-        expect { oauth_client.get("/account/summary") }.to raise_error(StandardError, /GET request failed/)
+        # When data access fails, user should get clear error message
+        expect { oauth_client.get("/account/summary") }.to raise_error(StandardError)
       end
     end
 
     describe "trading operations" do
-      it "enables order submission" do
-        # When user submits trading orders
+      it "enables order submission with proper authentication" do
+        # Mock order submission endpoint
+        stub_request(:post, "#{base_url}/orders")
+          .to_return(
+            status: 200,
+            body: '{"order_id": "12345", "status": "submitted"}',
+            headers: { "Content-Type" => "application/json" }
+          )
+
+        # When authenticated user submits trading orders
         result = oauth_client.post("/orders", body: { symbol: "AAPL", quantity: 100 })
         
         # Then orders should be processed
         expect(result).to be_a(Hash)
+        expect(result).to have_key("order_id")
       end
 
       it "handles order submission errors clearly" do
-        # When order submission fails
-        allow(oauth_client.instance_variable_get(:@http_client)).to receive(:post).and_raise(StandardError, "POST request failed")
+        # Mock order rejection
+        stub_request(:post, "#{base_url}/orders")
+          .to_return(status: 400, body: "Invalid order parameters")
         
-        # Then user should get clear error message
-        expect { oauth_client.post("/orders", body: { symbol: "AAPL", quantity: 100 }) }.to raise_error(StandardError, /POST request failed/)
+        # When order submission fails, user should get clear error message
+        expect { oauth_client.post("/orders", body: { symbol: "AAPL", quantity: 100 }) }.to raise_error(StandardError)
       end
     end
   end

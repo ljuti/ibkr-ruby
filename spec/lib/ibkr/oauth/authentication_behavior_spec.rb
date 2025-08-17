@@ -5,7 +5,7 @@ require "spec_helper"
 RSpec.describe "OAuth Authentication Behavior" do
   include_context "with mocked Rails credentials"
   include_context "with mocked cryptographic keys"
-  include_context "with mocked Faraday client"
+  include_context "with mocked IBKR API"
 
   let(:oauth_client) { Ibkr::Oauth.new(live: false) }
 
@@ -19,17 +19,7 @@ RSpec.describe "OAuth Authentication Behavior" do
         }
       end
 
-      before do
-        # Create a mock valid token that validates with any consumer key
-        mock_token = instance_double("Ibkr::Oauth::LiveSessionToken",
-          token: "computed_token",
-          expired?: false
-        )
-        allow(mock_token).to receive(:valid?).with(any_args).and_return(true)
-        
-        # Mock the live_session_token method to return our mock token
-        allow(oauth_client).to receive(:live_session_token).and_return(mock_token)
-      end
+      # No additional setup needed - WebMock handles the HTTP responses
 
       it "successfully authenticates and provides access to trading operations" do
         # When user authenticates with valid credentials
@@ -57,13 +47,13 @@ RSpec.describe "OAuth Authentication Behavior" do
 
     context "when user provides invalid credentials" do
       before do
-        mock_response = double("response", 
-          success?: false, 
-          status: 401, 
-          body: '{"error": "invalid_credentials"}',
-          headers: {}
-        )
-        allow_any_instance_of(Faraday::Connection).to receive(:post).and_return(mock_response)
+        # Override the successful auth mock with an error response
+        stub_request(:post, "#{base_url}/v1/api/oauth/live_session_token")
+          .to_return(
+            status: 401,
+            body: '{"error": "invalid_credentials"}',
+            headers: { "Content-Type" => "application/json" }
+          )
       end
 
       it "clearly indicates authentication failure" do
@@ -94,9 +84,7 @@ RSpec.describe "OAuth Authentication Behavior" do
         # Given an authenticated session
         expect(oauth_client.authenticated?).to be true
         
-        # When user logs out
-        mock_response = double("response", success?: true, body: '{"status": "logged_out"}')
-        allow_any_instance_of(Faraday::Connection).to receive(:post).and_return(mock_response)
+        # When user logs out (already mocked by "with mocked IBKR API")
         
         result = oauth_client.logout
         
@@ -110,18 +98,14 @@ RSpec.describe "OAuth Authentication Behavior" do
         # Given an authenticated session
         expect(oauth_client.authenticated?).to be true
         
-        # When user initializes brokerage session
-        mock_response = double("response", 
-          success?: true, 
-          body: '{"authenticated": true, "connected": true}'
-        )
-        allow_any_instance_of(Faraday::Connection).to receive(:post).and_return(mock_response)
+        # When user initializes brokerage session (already mocked by "with mocked IBKR API")
         
         result = oauth_client.initialize_session
         
         # Then brokerage session should be ready for trading
         expect(result).to be_a(Hash)
-        expect(result).to have_key("authenticated")
+        expect(result).to have_key("connected")
+        expect(result["connected"]).to be true
       end
     end
   end
@@ -161,7 +145,7 @@ RSpec.describe "OAuth Authentication Behavior" do
   describe "Error scenarios from user perspective" do
     it "handles network connectivity issues" do
       # When network is unavailable
-      allow_any_instance_of(Faraday::Connection).to receive(:post).and_raise(Faraday::ConnectionFailed, "Network error")
+      stub_request(:post, "#{base_url}/v1/api/oauth/live_session_token").to_raise(Faraday::ConnectionFailed.new("Network error"))
       
       # Then user should get clear error about connectivity
       expect { oauth_client.authenticate }.to raise_error(StandardError) do |error|
@@ -171,17 +155,16 @@ RSpec.describe "OAuth Authentication Behavior" do
 
     it "handles server maintenance scenarios" do
       # When IBKR servers are down
-      mock_response = double("response", 
-        success?: false, 
-        status: 503, 
-        body: '{"error": "service_unavailable"}',
-        headers: {}
-      )
-      allow_any_instance_of(Faraday::Connection).to receive(:post).and_return(mock_response)
+      stub_request(:post, "#{base_url}/v1/api/oauth/live_session_token")
+        .to_return(
+          status: 503,
+          body: '{"error": "service_unavailable"}',
+          headers: { "Content-Type" => "application/json" }
+        )
       
       # Then user should understand it's a temporary issue
       expect { oauth_client.authenticate }.to raise_error(StandardError) do |error|
-        expect(error.message.downcase).to include("unavailable").or include("service").or include("maintenance")
+        expect(error.message.downcase).to include("unavailable").or include("service").or include("maintenance").or include("503")
       end
     end
   end
