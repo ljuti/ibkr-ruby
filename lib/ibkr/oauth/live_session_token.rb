@@ -8,6 +8,9 @@ module Ibkr
     class LiveSessionToken
       attr_reader :token, :signature, :expires_in
 
+      # Test-specific accessor for signature (already public but making it explicit)
+      # This allows tests to verify the signature was computed correctly
+
       def initialize(token, signature, expires_in)
         @token = token
         @signature = signature

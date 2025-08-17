@@ -72,7 +72,7 @@ RSpec.describe "Fetch Available Accounts Integration", type: :unit do
       it "raises AuthenticationError if not authenticated" do
         unauthenticated_client = Ibkr::Client.new(live: false)
         oauth_client = double("oauth_client", authenticated?: false)
-        unauthenticated_client.instance_variable_set(:@oauth_client, oauth_client)
+        unauthenticated_client.oauth_client = oauth_client
 
         expect {
           unauthenticated_client.send(:fetch_available_accounts)

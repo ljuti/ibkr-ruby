@@ -78,7 +78,7 @@ RSpec.describe "OAuth Authentication Behavior" do
 
         # Set up the authenticator state directly
         authenticator = oauth_client.authenticator
-        authenticator.instance_variable_set(:@current_token, valid_token)
+        authenticator.current_token = valid_token
       end
 
       it "allows user to logout and clear session" do
@@ -124,7 +124,7 @@ RSpec.describe "OAuth Authentication Behavior" do
 
       # Set up the authenticator state directly
       authenticator = oauth_client.authenticator
-      authenticator.instance_variable_set(:@current_token, expired_token)
+      authenticator.current_token = expired_token
 
       # When checking authentication status
       # Then user should know token is expired
@@ -144,7 +144,7 @@ RSpec.describe "OAuth Authentication Behavior" do
 
       # Set up the authenticator state directly
       authenticator = oauth_client.authenticator
-      authenticator.instance_variable_set(:@current_token, valid_token)
+      authenticator.current_token = valid_token
 
       # When user accesses token
       # Then they should have a valid session

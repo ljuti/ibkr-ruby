@@ -327,7 +327,7 @@ RSpec.describe "Enhanced Error Context" do
       before do
         allow(oauth_client).to receive(:authenticated?).and_return(true)
         allow(client).to receive(:authenticated?).and_return(true)
-        client.instance_variable_set(:@available_accounts, ["DU123456", "DU789012"])
+        client.set_available_accounts(["DU123456", "DU789012"])
       end
 
       it "provides enhanced context for account not found" do

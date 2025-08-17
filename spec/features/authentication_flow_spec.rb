@@ -14,7 +14,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
       it "successfully establishes a secure session" do
         # Given a user wants to access their IBKR account in sandbox mode
         expect(client).to be_instance_of(Ibkr::Client)
-        expect(client.instance_variable_get(:@live)).to be false
+        expect(client.live).to be false
 
         # When they initiate authentication
         oauth_client = client.oauth_client
@@ -44,7 +44,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
 
       it "requires additional security validations for live trading" do
         # Given a user wants to access live trading
-        expect(live_client.instance_variable_get(:@live)).to be true
+        expect(live_client.live).to be true
 
         # When they authenticate with live credentials
         oauth_client = live_client.oauth_client
@@ -110,8 +110,8 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
       client2 = Ibkr::Client.new(default_account_id: "DU789012", live: false)
 
       # Then each client should have their respective default account configured
-      expect(client1.instance_variable_get(:@default_account_id)).to eq("DU123456")
-      expect(client2.instance_variable_get(:@default_account_id)).to eq("DU789012")
+      expect(client1.default_account_id).to eq("DU123456")
+      expect(client2.default_account_id).to eq("DU789012")
 
       # And after authentication, active accounts should be set to defaults
       # Mock the OAuth clients and authentication process
@@ -125,8 +125,8 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         authenticated?: true,
         initialize_session: true,
         get: {"accounts" => ["DU789012"]})
-      client1.instance_variable_set(:@oauth_client, oauth1)
-      client2.instance_variable_set(:@oauth_client, oauth2)
+      client1.oauth_client = oauth1
+      client2.oauth_client = oauth2
 
       client1.authenticate
       client2.authenticate
@@ -142,7 +142,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         authenticated?: true,
         initialize_session: true,
         get: {"accounts" => ["DU123456"]})
-      client.instance_variable_set(:@oauth_client, oauth_client)
+      client.oauth_client = oauth_client
       client.authenticate
 
       # When they access account services

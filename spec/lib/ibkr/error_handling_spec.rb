@@ -194,7 +194,7 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
       end
 
       it "properly handles token expiration" do
-        oauth_client.instance_variable_set(:@current_token, expired_token)
+        oauth_client.authenticator.current_token = expired_token
 
         # When token expires, user should be informed they need to re-authenticate
         # This is the key behavior: expired tokens should not provide access
@@ -213,7 +213,7 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
 
       it "provides clear feedback for session problems" do
         # First authenticate to avoid authentication error
-        oauth_client.instance_variable_set(:@current_token, double("token", valid?: true))
+        oauth_client.authenticator.current_token = double("token", valid?: true)
 
         # When session setup fails
         # Then user should get actionable error information
@@ -469,8 +469,8 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
         live_client = Ibkr::Client.new(default_account_id: "DU111111", live: true)
         sandbox_client = Ibkr::Client.new(default_account_id: "DU222222", live: false)
 
-        expect(live_client.instance_variable_get(:@live)).to be true
-        expect(sandbox_client.instance_variable_get(:@live)).to be false
+        expect(live_client.live).to be true
+        expect(sandbox_client.live).to be false
       end
     end
   end
@@ -492,8 +492,8 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
         # Simulate authentication for both clients
         oauth1 = double("oauth_client1", authenticate: true, authenticated?: true)
         oauth2 = double("oauth_client2", authenticate: true, authenticated?: true)
-        client1.instance_variable_set(:@oauth_client, oauth1)
-        client2.instance_variable_set(:@oauth_client, oauth2)
+        client1.oauth_client = oauth1
+        client2.oauth_client = oauth2
         allow(oauth1).to receive(:initialize_session)
         allow(oauth2).to receive(:initialize_session)
         allow(oauth1).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU111111"]})

@@ -20,7 +20,7 @@ RSpec.describe Ibkr::Oauth::LiveSessionToken do
 
       expect(token.token).to eq(valid_token)
       expect(token.expires_in).to eq(future_expiration)
-      expect(token.instance_variable_get(:@signature)).to eq(valid_signature)
+      expect(token.signature).to eq(valid_signature)
     end
   end
 

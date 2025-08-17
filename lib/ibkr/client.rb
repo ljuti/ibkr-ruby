@@ -172,6 +172,23 @@ module Ibkr
       @oauth_client ||= Oauth.new(config: @config, live: @live)
     end
 
+    # Test-specific methods for dependency injection
+    # These methods are used by tests to inject mock objects and set up test scenarios
+    # They should only be used in test environments
+
+    # Allow test injection of OAuth client
+    attr_writer :oauth_client
+
+    # Allow test setup of available accounts (used after authentication in real scenarios)
+    def set_available_accounts(accounts)
+      @available_accounts = accounts.freeze
+    end
+
+    # Allow test setup of active account directly (bypassing normal validation)
+    def set_active_account_for_test(account_id)
+      @active_account_id = account_id
+    end
+
     # HTTP methods (delegated to OAuth client)
     def get(path, **options)
       oauth_client.get(path, **options)

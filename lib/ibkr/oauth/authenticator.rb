@@ -6,7 +6,7 @@ require_relative "signature_generator"
 module Ibkr
   module Oauth
     class Authenticator
-      attr_reader :config, :http_client
+      attr_reader :config, :http_client, :signature_generator
       attr_accessor :current_token
 
       def initialize(config:, http_client:)

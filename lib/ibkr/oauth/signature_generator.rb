@@ -9,6 +9,9 @@ require "cgi"
 module Ibkr
   module Oauth
     class SignatureGenerator
+      # Test-specific accessor for @dh_random - allows tests to verify DH implementation
+      attr_accessor :dh_random
+
       def initialize(config)
         @config = config
       end

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module TestHelpers
-  # Helper methods for setting up test state without using instance_variable_set
+  # Helper methods for setting up test state using proper encapsulation
   module ClientTestHelper
     # Set up a client in authenticated state for testing
     def setup_authenticated_client(client, oauth_client:, accounts: ["DU123456"], active_account: nil)

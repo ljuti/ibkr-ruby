@@ -126,7 +126,7 @@ RSpec.describe "Ibkr::Oauth Cryptographic Operations", skip: true do
     it "stores the random value for later computation" do
       oauth_client.send(:dh_challenge)
 
-      expect(oauth_client.instance_variable_get(:@dh_random)).to eq(mock_dh_random)
+      expect(oauth_client.authenticator.signature_generator.dh_random).to eq(mock_dh_random)
     end
 
     it "uses proper DH parameter file loading" do
@@ -144,7 +144,7 @@ RSpec.describe "Ibkr::Oauth Cryptographic Operations", skip: true do
     let(:expected_token) { "final_encoded_token" }
 
     before do
-      oauth_client.instance_variable_set(:@dh_random, 12345)
+      oauth_client.authenticator.signature_generator.dh_random = 12345
 
       allow(OpenSSL::BN).to receive(:new).and_call_original
       allow(OpenSSL::BN).to receive(:new).with(dh_response, 16).and_return(double("b_bn"))
