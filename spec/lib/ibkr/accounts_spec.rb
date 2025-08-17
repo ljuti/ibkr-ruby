@@ -6,9 +6,11 @@ RSpec.describe Ibkr::Accounts do
   include_context "with authenticated oauth client"
 
   let(:client) do
-    client = Ibkr::Client.new(live: false)
+    client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
     client.instance_variable_set(:@oauth_client, oauth_client)
-    client.set_account_id("DU123456")
+    # Simulate authentication to set up active account
+    client.instance_variable_set(:@available_accounts, ["DU123456"])
+    client.instance_variable_set(:@active_account_id, "DU123456")
     client
   end
 
@@ -25,14 +27,14 @@ RSpec.describe Ibkr::Accounts do
       expect(service.account_id).to eq("DU123456")
     end
 
-    it "reflects changes in client account ID" do
+    it "reflects the client's immutable account ID" do
       # Given an accounts service
-      # When the client account ID changes
-      client.set_account_id("DU999999")
-      new_service = described_class.new(client)
+      # When creating a service from a client with account ID
+      service = described_class.new(client)
       
-      # Then the new service should reflect the updated account ID
-      expect(new_service.account_id).to eq("DU999999")
+      # Then the service should reflect the client's account ID
+      expect(service.account_id).to eq("DU123456")
+      expect(service.account_id).to eq(client.account_id)
     end
   end
 

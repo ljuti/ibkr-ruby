@@ -6,7 +6,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
   include_context "with mocked Rails credentials"
   include_context "with mocked cryptographic keys"
 
-  let(:client) { Ibkr::Client.new(live: false) }
+  let(:client) { Ibkr::Client.new(default_account_id: "DU123456", live: false) }
 
   describe "User authenticates with Interactive Brokers" do
     context "when user wants to connect to sandbox environment" do
@@ -35,7 +35,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
     end
 
     context "when user wants to connect to live trading environment" do
-      let(:live_client) { Ibkr::Client.new(live: true) }
+      let(:live_client) { Ibkr::Client.new(default_account_id: "DU789012", live: true) }
 
       it "requires additional security validations for live trading" do
         # Given a user wants to access live trading
@@ -92,23 +92,41 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
   describe "User sets up account context" do
     it "can specify which account to work with when having multiple accounts" do
       # Given a user with multiple IBKR accounts
-      account_id = "DU123456"
+      # When they create clients with different default accounts
+      client1 = Ibkr::Client.new(default_account_id: "DU123456", live: false)
+      client2 = Ibkr::Client.new(default_account_id: "DU789012", live: false)
       
-      # When they specify which account to use
-      client.set_account_id(account_id)
+      # Then each client should have their respective default account configured
+      expect(client1.instance_variable_get(:@default_account_id)).to eq("DU123456")
+      expect(client2.instance_variable_get(:@default_account_id)).to eq("DU789012")
       
-      # Then the client should use that account for subsequent operations
-      expect(client.account_id).to eq(account_id)
+      # And after authentication, active accounts should be set to defaults
+      # Mock the OAuth clients and authentication process
+      oauth1 = double("oauth_client1", authenticate: true, authenticated?: true)
+      oauth2 = double("oauth_client2", authenticate: true, authenticated?: true)
+      allow(client1).to receive(:oauth_client).and_return(oauth1)
+      allow(client2).to receive(:oauth_client).and_return(oauth2)
+      allow(client1).to receive(:fetch_available_accounts).and_return(["DU123456"])
+      allow(client2).to receive(:fetch_available_accounts).and_return(["DU789012"])
+      
+      client1.authenticate
+      client2.authenticate
+      
+      expect(client1.account_id).to eq("DU123456")
+      expect(client2.account_id).to eq("DU789012")
     end
 
-    it "provides access to account-specific services after account selection" do
-      # Given a user has selected an account
-      client.set_account_id("DU123456")
+    it "provides access to account-specific services after authentication" do
+      # Given a user has created a client for a specific account and authenticated
+      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+      allow(client).to receive(:oauth_client).and_return(oauth_client)
+      allow(client).to receive(:fetch_available_accounts).and_return(["DU123456"])
+      client.authenticate
       
       # When they access account services
       accounts_service = client.accounts
       
-      # Then they should have access to portfolio and trading operations
+      # Then they should have access to portfolio and trading operations for their account
       expect(accounts_service).to be_instance_of(Ibkr::Accounts)
       expect(accounts_service.account_id).to eq("DU123456")
     end

@@ -8,7 +8,7 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
   include_context "with mocked IBKR API"
 
   describe "Network and connectivity errors" do
-    let(:client) { Ibkr::Client.new(live: false) }
+    let(:client) { Ibkr::Client.new(default_account_id: "DU123456", live: false) }
 
     context "when IBKR API is unavailable" do
       before do
@@ -228,11 +228,10 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
   end
 
   describe "Account data reliability" do
-    let(:client) { Ibkr::Client.new(live: false) }
+    let(:client) { Ibkr::Client.new(default_account_id: "DU123456", live: false) }
     let(:accounts_service) { client.accounts }
 
     before do
-      client.set_account_id("DU123456")
       mock_oauth_client = double("oauth_client", authenticated?: true)
       allow(client).to receive(:oauth_client).and_return(mock_oauth_client)
     end
@@ -337,11 +336,10 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
         }
       end
 
-      let(:client) { Ibkr::Client.new(live: false) }
+      let(:client) { Ibkr::Client.new(default_account_id: "DU123456", live: false) }
       let(:accounts_service) { client.accounts }
 
       before do
-        client.set_account_id("DU123456")
         mock_oauth_client = double("oauth_client", authenticated?: true)
         allow(client).to receive(:oauth_client).and_return(mock_oauth_client)
         allow(mock_oauth_client).to receive(:get).and_return(large_positions_response)
@@ -387,7 +385,7 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
   end
 
   describe "Concurrency and thread safety" do
-    let(:client) { Ibkr::Client.new(live: false) }
+    let(:client) { Ibkr::Client.new(default_account_id: "DU123456", live: false) }
 
     context "when multiple threads access the same client" do
       it "maintains thread safety for authentication state" do
@@ -401,13 +399,12 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
         
         # All threads should complete successfully and return consistent results
         results = threads.map(&:join).map(&:value)
-        expect(results).to all(be_nil.or be_a(String))
+        expect(results).to all(eq("DU123456").or be_nil)
         # All threads completed successfully (no exceptions raised)
         expect(threads).to all(satisfy { |t| !t.status.nil? || t.value })
       end
 
       it "handles concurrent API requests safely" do
-        client.set_account_id("DU123456")
         allow(client.oauth_client).to receive(:get).and_return({"account_data" => "test"})
         
         threads = Array.new(3) do
@@ -468,8 +465,8 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
 
     context "when environment-specific configuration is wrong" do
       it "validates live vs sandbox environment configuration" do
-        live_client = Ibkr::Client.new(live: true)
-        sandbox_client = Ibkr::Client.new(live: false)
+        live_client = Ibkr::Client.new(default_account_id: "DU111111", live: true)
+        sandbox_client = Ibkr::Client.new(default_account_id: "DU222222", live: false)
         
         expect(live_client.instance_variable_get(:@live)).to be true
         expect(sandbox_client.instance_variable_get(:@live)).to be false
@@ -478,51 +475,39 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
   end
 
   describe "Edge cases in business logic" do
-    let(:client) { Ibkr::Client.new(live: false) }
+    let(:client) { Ibkr::Client.new(default_account_id: "DU123456", live: false) }
     
     before do
       mock_oauth_client = double("oauth_client", authenticated?: true)
       allow(client).to receive(:oauth_client).and_return(mock_oauth_client)
     end
 
-    context "when account ID is not set" do
-      it "provides clear guidance when user hasn't specified an account" do
-        # Remove the OAuth client mock to see real behavior
-        allow(client).to receive(:oauth_client).and_call_original
+    context "when working with multiple accounts" do
+      it "properly isolates account data for different clients" do
+        # Given two different clients for different accounts
+        client1 = Ibkr::Client.new(default_account_id: "DU111111", live: false)
+        client2 = Ibkr::Client.new(default_account_id: "DU222222", live: false)
         
-        # Given a user who hasn't set their account ID
-        expect(client.account_id).to be_nil
+        # Simulate authentication for both clients
+        oauth1 = double("oauth_client1", authenticate: true, authenticated?: true)
+        oauth2 = double("oauth_client2", authenticate: true, authenticated?: true)
+        allow(client1).to receive(:oauth_client).and_return(oauth1)
+        allow(client2).to receive(:oauth_client).and_return(oauth2)
+        allow(client1).to receive(:fetch_available_accounts).and_return(["DU111111"])
+        allow(client2).to receive(:fetch_available_accounts).and_return(["DU222222"])
+        client1.authenticate
+        client2.authenticate
         
-        # When user tries to access account operations
-        begin
-          result = client.accounts.summary
-          # If no error, verify we get meaningful feedback
-          expect(result).not_to be_nil, "Client should either provide account data or clear error about missing account ID"
-        rescue => error
-          # If error occurs, it should guide user clearly
-          error_msg = error.message.downcase
-          expect(error_msg).to include("account").or include("id").or include("context").or include("specify").or include("set").or include("authenticate")
-        end
-      end
-    end
-
-    context "when switching between multiple accounts" do
-      it "properly isolates account data" do
-        client.set_account_id("DU111111")
-        first_account_id = client.accounts.account_id
-        
-        client.set_account_id("DU222222")
-        second_account_id = client.accounts.account_id
-        
-        expect(first_account_id).to eq("DU111111")
-        expect(second_account_id).to eq("DU222222")
-        expect(first_account_id).not_to eq(second_account_id)
+        # Then each client should maintain its own account context
+        expect(client1.account_id).to eq("DU111111")
+        expect(client2.account_id).to eq("DU222222")
+        expect(client1.accounts.account_id).to eq("DU111111")
+        expect(client2.accounts.account_id).to eq("DU222222")
       end
     end
 
     context "when account has no positions or transactions" do
       before do
-        client.set_account_id("DU123456")
         allow(client.oauth_client).to receive(:get).and_return({ "results" => [] })
         allow(client.oauth_client).to receive(:post).and_return([])
       end

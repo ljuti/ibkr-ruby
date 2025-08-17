@@ -6,64 +6,84 @@ RSpec.describe Ibkr::Client do
   include_context "with mocked Rails credentials"
   include_context "with mocked cryptographic keys"
 
-  let(:client) { described_class.new(live: false) }
-  let(:live_client) { described_class.new(live: true) }
+  let(:client) { described_class.new(default_account_id: "DU123456", live: false) }
+  let(:live_client) { described_class.new(default_account_id: "DU789012", live: true) }
 
   describe "initialization" do
     context "when creating sandbox client" do
-      it "initializes with sandbox configuration" do
-        # Given a user wants to test in sandbox environment
+      it "initializes with sandbox configuration and default account" do
+        # Given a user wants to test in sandbox environment with specific default account
         # When creating a new client
-        client = described_class.new(live: false)
+        client = described_class.new(default_account_id: "DU123456", live: false)
         
         # Then it should be configured for sandbox mode
         expect(client.instance_variable_get(:@live)).to be false
-        expect(client.account_id).to be_nil
+        expect(client.instance_variable_get(:@default_account_id)).to eq("DU123456")
+        # Active account is not set until authentication
+        expect(client.active_account_id).to be_nil
       end
     end
 
     context "when creating live trading client" do
-      it "initializes with live trading configuration" do
-        # Given a user wants to trade in live environment
+      it "initializes with live trading configuration and default account" do
+        # Given a user wants to trade in live environment with specific default account
         # When creating a live client
-        client = described_class.new(live: true)
+        client = described_class.new(default_account_id: "DU789012", live: true)
         
         # Then it should be configured for live trading
         expect(client.instance_variable_get(:@live)).to be true
-        expect(client.account_id).to be_nil
+        expect(client.instance_variable_get(:@default_account_id)).to eq("DU789012")
+        # Active account is not set until authentication
+        expect(client.active_account_id).to be_nil
       end
     end
 
-    it "provides default sandbox mode when no parameter specified" do
-      default_client = described_class.new
-      expect(default_client.instance_variable_get(:@live)).to be false
+    it "allows creation without default account ID" do
+      # Given default_account_id is optional
+      # When creating client without default account
+      client = described_class.new(live: false)
+      
+      # Then it should initialize successfully
+      expect(client.instance_variable_get(:@live)).to be false
+      expect(client.instance_variable_get(:@default_account_id)).to be_nil
+      expect(client.active_account_id).to be_nil
     end
   end
 
   describe "authentication delegation" do
-    let(:mock_oauth_client) { double("oauth_client") }
+    let(:mock_oauth_client) { double("oauth_client", authenticated?: false) }
 
     before do
       allow(client).to receive(:oauth_client).and_return(mock_oauth_client)
     end
 
     describe "#authenticate" do
-      it "delegates authentication to OAuth client" do
+      it "delegates authentication to OAuth client and sets up accounts" do
         # Given an OAuth client is available
         expect(mock_oauth_client).to receive(:authenticate).and_return(true)
+        allow(mock_oauth_client).to receive(:authenticated?).and_return(true)
         
         # When authenticating
         result = client.authenticate
         
-        # Then it should delegate to OAuth client and return result
+        # Then authentication should succeed and accounts should be set up
         expect(result).to be true
+        expect(client.available_accounts).to eq(["DU123456"])
+        expect(client.active_account_id).to eq("DU123456")
       end
 
       it "handles authentication failures" do
         expect(mock_oauth_client).to receive(:authenticate).and_return(false)
         
+        # When authentication fails
         result = client.authenticate
+        
+        # Then subsequent operations should reflect failure
         expect(result).to be false
+        
+        # No accounts should be available and no active account set
+        expect(client.available_accounts).to be_empty
+        expect(client.active_account_id).to be_nil
       end
     end
 
@@ -96,44 +116,61 @@ RSpec.describe Ibkr::Client do
   end
 
   describe "account management" do
-    describe "#set_account_id" do
-      it "sets the account ID for subsequent operations" do
-        # Given a client without an account ID
-        expect(client.account_id).to be_nil
-        
-        # When setting an account ID
-        account_id = "DU123456"
-        client.set_account_id(account_id)
-        
-        # Then the account ID should be stored and accessible
-        expect(client.account_id).to eq(account_id)
-      end
-
-      it "allows changing account ID during session" do
-        client.set_account_id("DU111111")
-        expect(client.account_id).to eq("DU111111")
-        
-        client.set_account_id("DU222222")
-        expect(client.account_id).to eq("DU222222")
-      end
-
-      it "updates account context for services" do
-        client.set_account_id("DU123456")
-        
-        # Account services should reflect the new account ID
-        expect(client.accounts.account_id).to eq("DU123456")
-      end
+    let(:authenticated_client) do
+      client = described_class.new(default_account_id: "DU123456", live: false)
+      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+      allow(client).to receive(:oauth_client).and_return(oauth_client)
+      client.authenticate
+      client
     end
 
-    describe "#account_id" do
-      it "returns nil when no account is set" do
-        expect(client.account_id).to be_nil
-      end
+    it "sets up accounts after authentication" do
+      # Given a client with default account ID
+      # When authenticated
+      expect(authenticated_client.available_accounts).to eq(["DU123456"])
+      expect(authenticated_client.active_account_id).to eq("DU123456")
+      expect(authenticated_client.account_id).to eq("DU123456")  # Legacy alias
+    end
 
-      it "returns the currently set account ID" do
-        client.set_account_id("DU987654")
-        expect(client.account_id).to eq("DU987654")
-      end
+    it "allows switching between available accounts" do
+      # Given an authenticated client with multiple accounts
+      client = described_class.new(live: false)
+      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+      allow(client).to receive(:oauth_client).and_return(oauth_client)
+      allow(client).to receive(:fetch_available_accounts).and_return(["DU111111", "DU222222"])
+      client.authenticate
+      
+      # When switching accounts
+      client.set_active_account("DU222222")
+      
+      # Then active account should change
+      expect(client.active_account_id).to eq("DU222222")
+    end
+
+    it "validates account switching" do
+      # Given an authenticated client
+      # When trying to switch to unavailable account
+      # Then it should raise an error
+      expect { authenticated_client.set_active_account("DU999999") }.to raise_error(ArgumentError, /not available/)
+    end
+
+    it "provides account context to services" do
+      # Given an authenticated client
+      # Then account services should reflect the active account ID
+      expect(authenticated_client.accounts.account_id).to eq("DU123456")
+    end
+
+    it "clears service cache when switching accounts" do
+      # Given an authenticated client with services
+      accounts_service1 = authenticated_client.accounts
+      
+      # When switching accounts (simulate multiple accounts available)
+      authenticated_client.instance_variable_set(:@available_accounts, ["DU123456", "DU555555"])
+      authenticated_client.set_active_account("DU555555")
+      
+      # Then new services should reflect the new account
+      accounts_service2 = authenticated_client.accounts
+      expect(accounts_service2.account_id).to eq("DU555555")
     end
   end
 
@@ -178,17 +215,24 @@ RSpec.describe Ibkr::Client do
         expect(accounts_service.instance_variable_get(:@_client)).to be(client)
       end
 
-      it "reflects current account ID in service" do
-        client.set_account_id("DU555555")
+      it "reflects current account ID in service after authentication" do
+        # Given an authenticated client with account ID
+        oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+        allow(client).to receive(:oauth_client).and_return(oauth_client)
+        client.authenticate
+        
+        # When accessing accounts service
         accounts_service = client.accounts
         
-        expect(accounts_service.account_id).to eq("DU555555")
+        # Then service should reflect the client's active account ID
+        expect(accounts_service.account_id).to eq("DU123456")
+        expect(accounts_service.account_id).to eq(client.account_id)
       end
     end
   end
 
   describe "workflow integration" do
-    let(:mock_oauth_client) { double("oauth_client", authenticate: true, initialize_session: { "connected" => true }) }
+    let(:mock_oauth_client) { double("oauth_client", authenticate: true, authenticated?: true, initialize_session: { "connected" => true }) }
     let(:mock_accounts_service) { double("accounts_service", summary: double("summary")) }
 
     before do
@@ -197,7 +241,7 @@ RSpec.describe Ibkr::Client do
     end
 
     it "supports complete authentication and account setup workflow" do
-      # Given a new client
+      # Given a client created with default account ID
       # When following the complete setup workflow
       
       # 1. Authenticate
@@ -208,8 +252,7 @@ RSpec.describe Ibkr::Client do
       session_result = client.initialize_session
       expect(session_result).to include("connected" => true)
       
-      # 3. Set account
-      client.set_account_id("DU123456")
+      # 3. Account is set after successful authentication
       expect(client.account_id).to eq("DU123456")
       
       # 4. Access account data
@@ -227,14 +270,15 @@ RSpec.describe Ibkr::Client do
       # Then subsequent operations should still be possible to attempt
       expect(auth_result).to be false
       
-      # User should still be able to set account ID for future operations
-      client.set_account_id("DU123456")
-      expect(client.account_id).to eq("DU123456")
+      # No active account should be set when authentication fails
+      expect(client.account_id).to be_nil
+      # But default account ID is still available for retry
+      expect(client.instance_variable_get(:@default_account_id)).to eq("DU123456")
     end
   end
 
   describe "error propagation" do
-    let(:mock_oauth_client) { double("oauth_client") }
+    let(:mock_oauth_client) { double("oauth_client", authenticated?: false) }
 
     before do
       allow(client).to receive(:oauth_client).and_return(mock_oauth_client)
@@ -260,18 +304,24 @@ RSpec.describe Ibkr::Client do
   end
 
   describe "thread safety" do
-    it "maintains thread safety for account ID operations" do
+    it "maintains thread safety for account ID access" do
+      # First authenticate the client to set up active account
+      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+      allow(client).to receive(:oauth_client).and_return(oauth_client)
+      client.authenticate
+      
       threads = Array.new(5) do |i|
         Thread.new do
-          client.set_account_id("DU#{i}#{i}#{i}#{i}#{i}#{i}")
+          # Multiple threads accessing account ID simultaneously
+          client.account_id
         end
       end
       
-      # All threads should complete successfully
-      threads.map(&:join)
+      # All threads should complete successfully and return consistent results
+      results = threads.map(&:join).map(&:value)
       
-      # Final account ID should be one of the set values (proving thread safety worked)
-      expect(client.account_id).to match(/^DU\d{6}$/)
+      # All threads should get the same account ID (proving thread safety worked)
+      expect(results).to all(eq("DU123456"))
     end
 
     it "provides thread-safe access to memoized services" do
@@ -294,8 +344,11 @@ RSpec.describe Ibkr::Client do
 
   describe "resource cleanup" do
     it "allows garbage collection of large response data" do
-      # Given a client with large response data (simulated)
-      client.set_account_id("DU123456")
+      # Given an authenticated client with account data
+      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
+      allow(client).to receive(:oauth_client).and_return(oauth_client)
+      client.authenticate
+      expect(client.account_id).to eq("DU123456")
       
       # When client goes out of scope
       client = nil

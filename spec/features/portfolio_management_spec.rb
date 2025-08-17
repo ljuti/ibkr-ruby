@@ -6,9 +6,11 @@ RSpec.describe "Portfolio Management Operations", type: :feature do
   include_context "with authenticated oauth client"
 
   let(:client) do
-    client = Ibkr::Client.new(live: false)
+    client = Ibkr::Client.new(default_account_id: "DU123456", live: false)
     client.instance_variable_set(:@oauth_client, oauth_client)
-    client.set_account_id("DU123456")
+    # Simulate authentication to set up active account
+    client.instance_variable_set(:@available_accounts, ["DU123456"])
+    client.instance_variable_set(:@active_account_id, "DU123456")
     client
   end
 
