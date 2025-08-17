@@ -12,6 +12,7 @@ require_relative "ibkr/errors/repository_error"
 require_relative "ibkr/oauth"
 require_relative "ibkr/accounts"
 require_relative "ibkr/chainable_accounts_proxy"
+require_relative "ibkr/websocket"
 require_relative "ibkr/client"
 
 module Ibkr

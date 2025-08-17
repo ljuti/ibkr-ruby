@@ -69,3 +69,128 @@ RSpec.shared_examples "a data transformation operation" do |expected_attributes|
     end
   end
 end
+
+RSpec.shared_examples "a WebSocket connection lifecycle" do
+  it "handles connection establishment" do
+    expect { subject.connect }.to change { subject.connected? }.from(false).to(true)
+  end
+
+  it "handles connection closure" do
+    subject.connect
+    expect { subject.disconnect }.to change { subject.connected? }.from(true).to(false)
+  end
+
+  it "maintains connection state correctly" do
+    expect(subject.connection_state).to eq(:disconnected)
+    
+    subject.connect
+    expect(subject.connection_state).to eq(:connected)
+    
+    subject.disconnect
+    expect(subject.connection_state).to eq(:disconnected)
+  end
+end
+
+RSpec.shared_examples "a WebSocket message handler" do
+  it "processes valid messages" do
+    expect { subject.handle_message(valid_message) }.not_to raise_error
+  end
+
+  it "handles malformed messages gracefully" do
+    expect { subject.handle_message("invalid json {") }.not_to raise_error
+    expect(subject.last_error).to include("malformed")
+  end
+
+  it "validates message types" do
+    invalid_message = { type: "unknown_type", data: {} }
+    expect { subject.handle_message(invalid_message) }.not_to raise_error
+    expect(subject.last_error).to include("unknown message type")
+  end
+end
+
+RSpec.shared_examples "a WebSocket subscription manager" do
+  it "tracks subscription state" do
+    expect(subject.subscriptions).to be_empty
+    
+    subscription_id = subject.subscribe(subscription_request)
+    expect(subject.subscriptions).to include(subscription_id)
+    
+    subject.unsubscribe(subscription_id)
+    expect(subject.subscriptions).not_to include(subscription_id)
+  end
+
+  it "prevents duplicate subscriptions" do
+    id1 = subject.subscribe(subscription_request)
+    id2 = subject.subscribe(subscription_request)
+    
+    expect(id1).to eq(id2)
+    expect(subject.subscriptions.size).to eq(1)
+  end
+
+  it "handles subscription limits" do
+    allow(subject).to receive(:max_subscriptions).and_return(2)
+    
+    subject.subscribe({ channel: "test1" })
+    subject.subscribe({ channel: "test2" })
+    
+    expect { subject.subscribe({ channel: "test3" }) }.to raise_error(Ibkr::ApiError::RateLimitError)
+  end
+end
+
+RSpec.shared_examples "a WebSocket reconnection strategy" do
+  it "implements exponential backoff" do
+    expect(subject.next_reconnect_delay(1)).to be < subject.next_reconnect_delay(2)
+    expect(subject.next_reconnect_delay(2)).to be < subject.next_reconnect_delay(3)
+  end
+
+  it "caps maximum delay" do
+    large_attempt = 100
+    delay = subject.next_reconnect_delay(large_attempt)
+    expect(delay).to be <= subject.max_reconnect_delay
+  end
+
+  it "tracks reconnection attempts" do
+    expect(subject.reconnect_attempts).to eq(0)
+    
+    subject.attempt_reconnect
+    expect(subject.reconnect_attempts).to eq(1)
+    
+    subject.reset_reconnect_attempts
+    expect(subject.reconnect_attempts).to eq(0)
+  end
+end
+
+RSpec.shared_examples "a real-time data processor" do
+  it "processes data updates in correct order" do
+    updates = []
+    subject.on_update { |data| updates << data }
+    
+    subject.process_message(first_update)
+    subject.process_message(second_update)
+    
+    expect(updates).to eq([first_update[:data], second_update[:data]])
+  end
+
+  it "handles out-of-order messages" do
+    # Should be implemented based on timestamp ordering
+    updates = []
+    subject.on_update { |data| updates << data }
+    
+    # Send newer message first
+    subject.process_message(newer_message)
+    subject.process_message(older_message)
+    
+    # Should be reordered by timestamp
+    expect(updates.first[:timestamp]).to be < updates.last[:timestamp]
+  end
+
+  it "filters duplicate messages" do
+    updates = []
+    subject.on_update { |data| updates << data }
+    
+    subject.process_message(duplicate_message)
+    subject.process_message(duplicate_message)
+    
+    expect(updates.size).to eq(1)
+  end
+end

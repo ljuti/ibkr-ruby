@@ -15,6 +15,7 @@ require "webmock/rspec"
 require_relative "support/shared_contexts"
 require_relative "support/shared_examples"
 require_relative "support/fixture_helper"
+require_relative "support/websocket_helpers"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -88,5 +89,16 @@ RSpec.configure do |config|
   config.before(:each, :integration) do
     # Skip integration tests by default unless explicitly requested
     skip "Integration tests require IBKR_RUN_INTEGRATION_TESTS=true" unless ENV["IBKR_RUN_INTEGRATION_TESTS"]
+  end
+
+  # WebSocket integration test setup
+  config.before(:each, :websocket_integration) do
+    skip "WebSocket integration tests require IBKR_RUN_WEBSOCKET_TESTS=true" unless ENV["IBKR_RUN_WEBSOCKET_TESTS"]
+  end
+
+  # WebSocket performance test setup
+  config.before(:each, :websocket_performance) do
+    # Set stricter performance thresholds for WebSocket operations
+    @websocket_performance_threshold = 0.1  # 100ms for WebSocket operations
   end
 end

@@ -7,5 +7,8 @@ require "ibkr"
 # You can add fixtures and/or initialization code here to make experimenting
 # with your gem easier. You can also use a different console, if you like.
 
+# Configure Anyway::Settings to use local configuration files
+Anyway::Settings.use_local_files = true
+
 require "irb"
 IRB.start(__FILE__)

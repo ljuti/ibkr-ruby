@@ -39,6 +39,8 @@ Gem::Specification.new do |spec|
   spec.add_dependency "anyway_config", "~> 2.6"
   spec.add_dependency "websocket-driver", "~> 0.7"
   spec.add_dependency "concurrent-ruby", "~> 1.2"
+  spec.add_dependency "eventmachine", "~> 1.2"
+  spec.add_dependency "faye-websocket", "~> 0.11"
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html

@@ -228,3 +228,20 @@ RSpec.shared_context "with authenticated oauth client" do
     client
   end
 end
+
+RSpec.shared_context "with WebSocket test environment" do
+  include_context "with mocked EventMachine"
+  include_context "with WebSocket performance monitoring"
+  
+  before do
+    # Ensure WebSocket tests don't interfere with each other
+    allow(Faye::WebSocket::Client).to receive(:new).and_call_original
+  end
+  
+  after do
+    # Clean up any lingering connections
+    if defined?(@websocket_client) && @websocket_client
+      @websocket_client.disconnect rescue nil
+    end
+  end
+end

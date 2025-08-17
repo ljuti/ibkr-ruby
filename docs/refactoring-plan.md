@@ -43,10 +43,15 @@ This document outlines the refactoring roadmap for the IBKR Ruby gem based on co
 - [ ] **Lazy Loading** - Load services and data on-demand
 - [ ] **Async Operations** - Non-blocking API calls for better throughput
 
-### Phase 4: Extensibility & Plugin Architecture (Long-term)
-- [ ] **Plugin System** - Modular architecture for new features
+### Phase 4: Real-time Features (Medium-term)
+- [x] **WebSocket Support** - Real-time market data and portfolio streaming ✅
+- [x] **Event System** - Publisher/subscriber for WebSocket events ✅
+- [x] **Subscription Management** - Intelligent subscription lifecycle management ✅
+- [ ] **Real-time Data Models** - Streaming data structures and validation
+
+### Phase 5: Extensibility & Plugin Architecture (Long-term)
+- [ ] **Plugin System** - Modular architecture for new features  
 - [ ] **Configuration DSL** - Declarative configuration syntax
-- [ ] **Event System** - Publish/subscribe for loose coupling
 - [ ] **Service Registry** - Dynamic service discovery and registration
 
 ## Detailed Recommendations
@@ -184,7 +189,56 @@ error.debug_info
 - Add connection health checks
 - Optimize for concurrent requests
 
-### 6. Plugin Architecture (Priority: Low, Impact: High)
+### 6. WebSocket Support (Priority: High, Impact: High)
+
+**Target Architecture:**
+```ruby
+# Real-time market data streaming
+client = Ibkr.client("DU123456").authenticate!
+
+# Subscribe to real-time market data
+client.websocket.market_data.subscribe("AAPL") do |quote|
+  puts "AAPL: $#{quote.last_price} (#{quote.timestamp})"
+end
+
+# Subscribe to portfolio updates
+client.websocket.portfolio.subscribe do |update|
+  puts "Portfolio value: $#{update.net_liquidation_value}"
+end
+
+# Subscribe to order status updates
+client.websocket.orders.subscribe do |order_update|
+  puts "Order #{order_update.order_id}: #{order_update.status}"
+end
+
+# Fluent subscription management
+client.websocket
+  .subscribe_to_market_data(["AAPL", "MSFT", "GOOGL"])
+  .subscribe_to_portfolio_updates
+  .subscribe_to_order_status
+  .connect
+```
+
+**Implementation Features:**
+- WebSocket client with OAuth authentication
+- Automatic connection management and reconnection
+- Real-time market data streaming (Level I & Level II)
+- Portfolio and account value streaming
+- Order status and execution streaming
+- Subscription management with rate limiting
+- Event-driven architecture with callbacks
+- Integration with existing error context system
+- Thread-safe message processing
+- Performance monitoring and metrics
+
+**Benefits:**
+- Real-time portfolio monitoring
+- Live market data for trading algorithms
+- Immediate order status updates
+- Reduced API polling and rate limiting
+- Enhanced trading application responsiveness
+
+### 7. Plugin Architecture (Priority: Low, Impact: High)
 
 **Target Structure:**
 ```ruby
@@ -206,6 +260,7 @@ client = Ibkr.client("DU123456")
 | ~~Enhanced Errors~~ | ~~High~~ | ~~Medium~~ | ~~Low~~ | ✅ **DONE** | ~~None~~ |
 | ~~Repository Pattern~~ | ~~Medium~~ | ~~High~~ | ~~Medium~~ | ✅ **DONE** | ~~None~~ |
 | Connection Pooling | Medium | High | Low | 📋 Planned | None |
+| ~~WebSocket Support~~ | ~~High~~ | ~~High~~ | ~~High~~ | ✅ **DONE** | ~~Enhanced Errors ✅~~ |
 | Strategy Pattern | Medium | Medium | Medium | 📋 Planned | Repository ✅ |
 | Plugin Architecture | Low | High | High | 📋 Future | Strategy, Repository ✅ |
 
@@ -282,6 +337,20 @@ Each refactoring phase will include:
 - ✅ Defensive error handling for compatibility with existing tests
 - ✅ 100% backward compatibility maintained
 
+#### 6. WebSocket Support (Phase 4)
+- ✅ Complete WebSocket client implementation with OAuth authentication
+- ✅ Real-time market data streaming with subscription management
+- ✅ Portfolio and account value streaming
+- ✅ Order status and execution streaming
+- ✅ Automatic connection management and reconnection with exponential backoff
+- ✅ Event-driven architecture with comprehensive event system
+- ✅ Subscription management with rate limiting and error handling
+- ✅ Circuit breaker pattern for persistent failures
+- ✅ Enhanced error context integration for WebSocket errors
+- ✅ Performance monitoring and statistics tracking
+- ✅ Integration with existing client fluent interfaces
+- ✅ Thread-safe message processing and connection management
+
 ### In Progress 🟡
 *None currently*
 
@@ -291,9 +360,10 @@ Each refactoring phase will include:
 2. ✅ Implement fluent interfaces (Phase 1)
 3. ✅ Repository pattern implementation (Phase 2)
 4. ✅ Enhanced error context (Phase 1)
-5. 🔜 Connection pooling (Phase 3) - **NEXT PRIORITY**
-6. 📋 Strategy pattern for authentication (Phase 2)
-7. 📋 Performance optimizations (Phase 3)
+5. ✅ WebSocket support (Phase 4) - **COMPLETED**
+6. 📋 Connection pooling (Phase 3) - **NEXT PRIORITY**
+7. 📋 Strategy pattern for authentication (Phase 2)
+8. 📋 Performance optimizations (Phase 3)
 
 ### Success Metrics Achieved ✅
 - **Developer Experience**: Fluent API reduces boilerplate code significantly
@@ -306,6 +376,64 @@ Each refactoring phase will include:
 ## Available Features & Usage
 
 With the completed refactoring, developers can now leverage:
+
+### WebSocket Streaming Features
+```ruby
+# Connect and stream real-time market data
+client = Ibkr.connect("DU123456", live: false)
+websocket = client.websocket
+
+# Subscribe to market data with event handlers
+websocket.connect
+websocket.subscribe_market_data(["AAPL", "MSFT"], ["price", "volume"])
+websocket.on_market_data { |data| puts "#{data[:symbol]}: $#{data[:price]}" }
+
+# Subscribe to portfolio updates
+websocket.subscribe_portfolio("DU123456")
+websocket.on_portfolio_update { |data| puts "Portfolio: $#{data[:total_value]}" }
+
+# Subscribe to order status updates
+websocket.subscribe_orders("DU123456")
+websocket.on_order_update { |data| puts "Order #{data[:order_id]}: #{data[:status]}" }
+
+# Fluent interface for multiple subscriptions
+client.websocket
+  .connect
+  .subscribe_to_market_data(["AAPL"], ["price"])
+  .subscribe_to_portfolio_updates
+  .subscribe_to_order_status
+
+# Client-level fluent streaming
+client.stream_market_data("AAPL", "MSFT")
+      .stream_portfolio
+      .stream_orders
+```
+
+### WebSocket Connection Management
+```ruby
+# Connection state monitoring
+websocket.connected?           # => true/false
+websocket.authenticated?       # => true/false
+websocket.connection_healthy?  # => true/false
+websocket.connection_state     # => :connected, :authenticating, etc.
+
+# Error handling with enhanced context
+websocket.on_error do |error|
+  puts error.detailed_message   # Rich error information
+  puts error.suggestions        # Actionable guidance
+  puts error.debug_info         # Technical debugging details
+end
+
+# Automatic reconnection
+websocket.enable_auto_reconnect
+websocket.on_reconnected { puts "Connection restored!" }
+
+# Statistics and monitoring
+stats = websocket.statistics
+puts "Connection uptime: #{stats[:connection][:uptime]} seconds"
+puts "Messages processed: #{stats[:message_routing][:total_messages]}"
+puts "Active subscriptions: #{stats[:subscriptions][:total]}"
+```
 
 ### Fluent Interface API
 ```ruby

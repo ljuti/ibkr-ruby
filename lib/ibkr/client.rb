@@ -3,6 +3,7 @@
 require_relative "oauth"
 require_relative "accounts"
 require_relative "chainable_accounts_proxy"
+require_relative "websocket"
 
 module Ibkr
   # Main client for Interactive Brokers Web API access.
@@ -222,6 +223,96 @@ module Ibkr
     # Chainable version of accounts service
     def accounts_fluent
       ChainableAccountsProxy.new(self)
+    end
+
+    # WebSocket accessor (lazy-loaded)
+    # 
+    # Provides real-time streaming capabilities for market data, portfolio updates,
+    # and order status. The WebSocket client is created on first access and
+    # integrates with the existing authentication system.
+    #
+    # @return [Ibkr::WebSocket::Client] WebSocket client instance
+    #
+    # @example Basic usage
+    #   websocket = client.websocket
+    #   websocket.connect
+    #   websocket.subscribe_market_data(["AAPL"], ["price"])
+    #
+    # @example Fluent interface
+    #   client.websocket
+    #     .connect
+    #     .subscribe_market_data(["AAPL"], ["price"])
+    #     .subscribe_portfolio
+    #
+    def websocket
+      @websocket ||= WebSocket::Client.new(self)
+    end
+
+    # Fluent interface for WebSocket connection
+    #
+    # Connects to WebSocket and returns self for method chaining.
+    # Useful for fluent interface workflows.
+    #
+    # @return [self] Returns self for method chaining
+    #
+    # @example
+    #   client.with_websocket.stream_market_data("AAPL")
+    #
+    def with_websocket
+      websocket.connect
+      self
+    end
+
+    # Stream market data (fluent interface)
+    #
+    # Connects to WebSocket and subscribes to market data for specified symbols.
+    # Returns self for method chaining.
+    #
+    # @param symbols [Array<String>, String] Symbols to subscribe to
+    # @param fields [Array<String>] Data fields to receive (default: ["price"])
+    # @return [self] Returns self for method chaining
+    #
+    # @example
+    #   client.stream_market_data("AAPL")
+    #   client.stream_market_data(["AAPL", "MSFT"], ["price", "volume"])
+    #
+    def stream_market_data(*symbols, fields: ["price"])
+      websocket.subscribe_to_market_data(symbols.flatten, fields)
+      self
+    end
+
+    # Stream portfolio updates (fluent interface)
+    #
+    # Connects to WebSocket and subscribes to portfolio updates for the current account.
+    # Returns self for method chaining.
+    #
+    # @param account_id [String, nil] Account ID (uses current account if nil)
+    # @return [self] Returns self for method chaining
+    #
+    # @example
+    #   client.stream_portfolio
+    #   client.stream_portfolio("DU789012")
+    #
+    def stream_portfolio(account_id = nil)
+      websocket.subscribe_to_portfolio_updates(account_id || @active_account_id)
+      self
+    end
+
+    # Stream order status updates (fluent interface)
+    #
+    # Connects to WebSocket and subscribes to order status updates for the current account.
+    # Returns self for method chaining.
+    #
+    # @param account_id [String, nil] Account ID (uses current account if nil)
+    # @return [self] Returns self for method chaining
+    #
+    # @example
+    #   client.stream_orders
+    #   client.stream_orders("DU789012")
+    #
+    def stream_orders(account_id = nil)
+      websocket.subscribe_to_order_status(account_id || @active_account_id)
+      self
     end
 
     private
