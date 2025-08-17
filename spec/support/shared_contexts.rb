@@ -148,6 +148,40 @@ RSpec.shared_context "with mocked IBKR API" do
         headers: {"Content-Type" => "application/json"}
       )
 
+    # Mock accounts endpoint
+    accounts_fixture = {
+      "accounts" => ["DU123456"],
+      "acctProps" => {
+        "DU123456" => {
+          "hasChildAccounts" => false,
+          "supportsCashQty" => true,
+          "liteUnderPro" => false,
+          "noFXConv" => false,
+          "isProp" => false,
+          "supportsFractions" => true,
+          "allowCustomerTime" => false,
+          "autoFx" => false
+        }
+      },
+      "aliases" => {"DU123456" => "demo_account"},
+      "allowFeatures" => {},
+      "chartPeriods" => {},
+      "groups" => [],
+      "profiles" => [],
+      "selectedAccount" => "DU123456",
+      "serverInfo" => {"serverName" => "DemoServer001", "serverVersion" => "Build 10.38.1c, Aug 4, 2025 2:10:48 PM"},
+      "sessionId" => "demo123.00000001",
+      "isFT" => false,
+      "isPaper" => true
+    }
+    
+    stub_request(:get, "#{base_url}/v1/api/iserver/accounts")
+      .to_return(
+        status: 200,
+        body: accounts_fixture.to_json,
+        headers: {"Content-Type" => "application/json"}
+      )
+
     # Mock account summary endpoint
     stub_request(:get, %r{#{base_url}/v1/api/portfolio/.+/summary})
       .to_return(

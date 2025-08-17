@@ -1,0 +1,69 @@
+{
+  "accounts": ["DU123456"],
+  "acctProps": {
+    "DU123456": {
+      "hasChildAccounts": false,
+      "supportsCashQty": true,
+      "liteUnderPro": false,
+      "noFXConv": false,
+      "isProp": false,
+      "supportsFractions": true,
+      "allowCustomerTime": false,
+      "autoFx": false
+    }
+  },
+  "aliases": {
+    "DU123456": "demo_account"
+  },
+  "allowFeatures": {
+    "showGFIS": true,
+    "showEUCostReport": false,
+    "allowEventContract": true,
+    "allowFXConv": true,
+    "allowFinancialLens": false,
+    "allowMTA": true,
+    "allowTypeAhead": true,
+    "allowEventTrading": true,
+    "snapshotRefreshTimeout": 30,
+    "liteUser": false,
+    "showWebNews": true,
+    "research": true,
+    "debugPnl": true,
+    "showTaxOpt": true,
+    "showImpactDashboard": true,
+    "allowDynAccount": false,
+    "allowCrypto": false,
+    "allowFA": false,
+    "allowLiteUnderPro": false,
+    "allowedAssetTypes": "STK,CFD,OPT,FOP,WAR,FUT,BAG,PDC,CASH,IND,BOND,BILL,FUND,SLB,News,CMDTY,IOPT,ICU,ICS,PHYSS,CRYPTO",
+    "restrictTradeSubscription": false,
+    "showUkUserLabels": false,
+    "sideBySide": true
+  },
+  "chartPeriods": {
+    "STK": ["*"],
+    "CFD": ["*"],
+    "OPT": ["2h", "1d", "2d", "1w", "1m"],
+    "FOP": ["2h", "1d", "2d", "1w", "1m"],
+    "WAR": ["*"],
+    "IOPT": ["*"],
+    "FUT": ["*"],
+    "CASH": ["*"],
+    "IND": ["*"],
+    "BOND": ["*"],
+    "FUND": ["*"],
+    "CMDTY": ["*"],
+    "PHYSS": ["*"],
+    "CRYPTO": ["*"]
+  },
+  "groups": [],
+  "profiles": [],
+  "selectedAccount": "DU123456",
+  "serverInfo": {
+    "serverName": "DemoServer001",
+    "serverVersion": "Build 10.38.1c, Aug 4, 2025 2:10:48 PM"
+  },
+  "sessionId": "demo123.00000001",
+  "isFT": false,
+  "isPaper": true
+}

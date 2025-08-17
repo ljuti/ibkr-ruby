@@ -5,6 +5,7 @@ require "spec_helper"
 RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
   include_context "with mocked Rails credentials"
   include_context "with mocked cryptographic keys"
+  include_context "with mocked IBKR API"
 
   let(:client) { Ibkr::Client.new(default_account_id: "DU123456", live: false) }
 
@@ -16,7 +17,11 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         expect(client.instance_variable_get(:@live)).to be false
 
         # When they initiate authentication
-        expect(client.oauth_client).to receive(:authenticate).and_return(true)
+        oauth_client = client.oauth_client
+        expect(oauth_client).to receive(:authenticate).and_return(true)
+        allow(oauth_client).to receive(:authenticated?).and_return(true)
+        allow(oauth_client).to receive(:initialize_session).and_return(true)
+        allow(oauth_client).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU123456"]})
 
         # Then they should be successfully authenticated
         result = client.authenticate
@@ -42,7 +47,11 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         expect(live_client.instance_variable_get(:@live)).to be true
 
         # When they authenticate with live credentials
-        expect(live_client.oauth_client).to receive(:authenticate).and_return(true)
+        oauth_client = live_client.oauth_client
+        expect(oauth_client).to receive(:authenticate).and_return(true)
+        allow(oauth_client).to receive(:authenticated?).and_return(true)
+        allow(oauth_client).to receive(:initialize_session).and_return(true)
+        allow(oauth_client).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU789012"]})
 
         # Then the system should apply enhanced security measures
         result = live_client.authenticate
@@ -54,7 +63,11 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
 
   describe "User manages their session lifecycle" do
     before do
-      allow(client.oauth_client).to receive(:authenticate).and_return(true)
+      oauth_client = client.oauth_client
+      allow(oauth_client).to receive(:authenticate).and_return(true)
+      allow(oauth_client).to receive(:authenticated?).and_return(true)
+      allow(oauth_client).to receive(:initialize_session).and_return(true)
+      allow(oauth_client).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU123456"]})
       client.authenticate
     end
 
@@ -102,12 +115,20 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
 
       # And after authentication, active accounts should be set to defaults
       # Mock the OAuth clients and authentication process
-      oauth1 = double("oauth_client1", authenticate: true, authenticated?: true)
-      oauth2 = double("oauth_client2", authenticate: true, authenticated?: true)
-      allow(client1).to receive(:oauth_client).and_return(oauth1)
-      allow(client2).to receive(:oauth_client).and_return(oauth2)
-      allow(client1).to receive(:fetch_available_accounts).and_return(["DU123456"])
-      allow(client2).to receive(:fetch_available_accounts).and_return(["DU789012"])
+      oauth1 = double("oauth_client1", 
+        authenticate: true, 
+        authenticated?: true,
+        initialize_session: true,
+        get: {"accounts" => ["DU123456"]}
+      )
+      oauth2 = double("oauth_client2", 
+        authenticate: true, 
+        authenticated?: true,
+        initialize_session: true,
+        get: {"accounts" => ["DU789012"]}
+      )
+      client1.instance_variable_set(:@oauth_client, oauth1)
+      client2.instance_variable_set(:@oauth_client, oauth2)
 
       client1.authenticate
       client2.authenticate
@@ -118,9 +139,13 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
 
     it "provides access to account-specific services after authentication" do
       # Given a user has created a client for a specific account and authenticated
-      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
-      allow(client).to receive(:oauth_client).and_return(oauth_client)
-      allow(client).to receive(:fetch_available_accounts).and_return(["DU123456"])
+      oauth_client = double("oauth_client", 
+        authenticate: true, 
+        authenticated?: true,
+        initialize_session: true,
+        get: {"accounts" => ["DU123456"]}
+      )
+      client.instance_variable_set(:@oauth_client, oauth_client)
       client.authenticate
 
       # When they access account services

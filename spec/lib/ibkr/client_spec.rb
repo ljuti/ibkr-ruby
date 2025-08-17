@@ -135,9 +135,13 @@ RSpec.describe Ibkr::Client do
     it "allows switching between available accounts" do
       # Given an authenticated client with multiple accounts
       client = described_class.new(live: false)
-      oauth_client = double("oauth_client", authenticate: true, authenticated?: true)
-      allow(client).to receive(:oauth_client).and_return(oauth_client)
-      allow(client).to receive(:fetch_available_accounts).and_return(["DU111111", "DU222222"])
+      oauth_client = double("oauth_client", 
+        authenticate: true, 
+        authenticated?: true,
+        initialize_session: true,
+        get: {"accounts" => ["DU111111", "DU222222"]}
+      )
+      client.instance_variable_set(:@oauth_client, oauth_client)
       client.authenticate
 
       # When switching accounts

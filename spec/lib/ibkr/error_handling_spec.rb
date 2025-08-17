@@ -492,10 +492,12 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
         # Simulate authentication for both clients
         oauth1 = double("oauth_client1", authenticate: true, authenticated?: true)
         oauth2 = double("oauth_client2", authenticate: true, authenticated?: true)
-        allow(client1).to receive(:oauth_client).and_return(oauth1)
-        allow(client2).to receive(:oauth_client).and_return(oauth2)
-        allow(client1).to receive(:fetch_available_accounts).and_return(["DU111111"])
-        allow(client2).to receive(:fetch_available_accounts).and_return(["DU222222"])
+        client1.instance_variable_set(:@oauth_client, oauth1)
+        client2.instance_variable_set(:@oauth_client, oauth2)
+        allow(oauth1).to receive(:initialize_session)
+        allow(oauth2).to receive(:initialize_session)
+        allow(oauth1).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU111111"]})
+        allow(oauth2).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU222222"]})
         client1.authenticate
         client2.authenticate
 

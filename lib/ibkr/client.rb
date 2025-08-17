@@ -196,19 +196,33 @@ module Ibkr
     private
 
     def fetch_available_accounts
-      # In a real implementation, this would call an IBKR API endpoint
-      # For now, we'll simulate this based on the default account or return a default
+      # Ensure we have an authenticated brokerage session
+      unless @oauth_client.authenticated?
+        raise Ibkr::AuthenticationError, "Client must be authenticated before fetching accounts"
+      end
+
+      # Initialize brokerage session if needed
+      @oauth_client.initialize_session(priority: true)
+
+      # Fetch available accounts from IBKR API
+      response = @oauth_client.get("/v1/api/iserver/accounts")
+      
+      # Extract account IDs from the response
+      accounts = response["accounts"] || []
+      
+      # Return account IDs array
+      accounts
+    rescue Ibkr::BaseError
+      # Re-raise IBKR-specific errors (they have useful context)
+      raise
+    rescue StandardError => e
+      # If fetching accounts fails for other reasons, fall back gracefully
+      # In production, this would be logged as a warning
       if @default_account_id
         [@default_account_id]
       else
-        # Simulate fetching from IBKR API - in reality this would be:
-        # response = oauth_client.get("/v1/api/brokerage/accounts")
-        # response["accounts"].map { |acc| acc["id"] }
-        ["DU123456"]  # Default sandbox account
+        raise Ibkr::ApiError, "Failed to fetch available accounts: #{e.message}"
       end
-    rescue
-      # If fetching accounts fails, return default account or empty array
-      @default_account_id ? [@default_account_id] : []
     end
 
     def ensure_authenticated!

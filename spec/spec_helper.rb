@@ -14,6 +14,7 @@ require "webmock/rspec"
 # Load shared contexts and examples
 require_relative "support/shared_contexts"
 require_relative "support/shared_examples"
+require_relative "support/fixture_helper"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
