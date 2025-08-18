@@ -739,10 +739,13 @@ end
 
 The gem includes comprehensive test coverage:
 
-- **403 total tests** (365 passing, 38 pending cryptographic operations)
-- Core functionality (Client, Accounts, Models): **100% passing**
-- Multi-account workflows: **100% passing**
-- Fluent interface: **100% passing**
+- **1524 total tests** (1486 passing, 38 pending)
+  - Core functionality: **100% passing**
+  - Flex Web Service: **100% passing**
+  - Multi-account workflows: **100% passing**
+  - Fluent interface: **100% passing**
+  - WebSocket (pending implementation): 38 tests
+- **Line Coverage: 90.97%** (3033/3334 lines)
 - Integration tests with proper mocking
 - Error handling and edge case coverage
 - BDD-style tests focusing on behavior over implementation
