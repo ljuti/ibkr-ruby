@@ -36,7 +36,7 @@ module Ibkr
       #
       # @return [Boolean] True if authenticated and session token is valid
       def authenticated?
-        return false unless @session_token
+        return false unless session_token
 
         @ibkr_client.authenticated?
       end
@@ -56,7 +56,7 @@ module Ibkr
         get_session_token_from_tickle
 
         # Return the session token as JSON string for WebSocket auth
-        {"session" => @session_token}.to_json
+        {"session" => session_token}.to_json
       end
 
       # Alias for compatibility
@@ -68,7 +68,7 @@ module Ibkr
       def refresh_token!
         ensure_main_client_authenticated!
         get_session_token_from_tickle
-        @session_token
+        session_token
       end
 
       # Get WebSocket endpoint URL
@@ -88,7 +88,7 @@ module Ibkr
         # Always get fresh session token for new connections
         get_session_token_from_tickle
 
-        cookie_value = "api=#{@session_token}"
+        cookie_value = "api=#{session_token}"
 
         Configuration.default_headers(Ibkr::VERSION).merge(
           "Cookie" => cookie_value
@@ -99,19 +99,19 @@ module Ibkr
       #
       # @return [Boolean] True if session token exists
       def token_valid?
-        !@session_token.nil?
+        !session_token.nil?
       end
 
       # Get session expiration info (if available from session data)
       #
       # @return [Integer, nil] Seconds until expiration, or nil if unknown
       def token_expires_in
-        return nil unless @session_data&.dig("ssoExpires")
+        return nil unless session_data&.dig("ssoExpires")
 
-        expires_at = @session_data["ssoExpires"]
+        expires_at = session_data.fetch("ssoExpires")
         return nil unless expires_at.is_a?(Integer)
 
-        expires_at - Time.now.to_i
+        expires_at - Integer(Time.now)
       end
 
       # Handle authentication response from WebSocket server

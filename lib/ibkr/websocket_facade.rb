@@ -23,16 +23,13 @@ module Ibkr
     # @param client [Ibkr::Client] The main client instance
     def initialize(client)
       @client = client
-      @websocket_client = nil
-      @streaming = nil
-      @real_time_data = nil
     end
 
     # Get WebSocket client (lazy-loaded).
     #
     # @return [Ibkr::WebSocket::Client] WebSocket client instance
     def websocket
-      @websocket_client ||= WebSocket::Client.new(@client)
+      @websocket_client ||= WebSocket::Client.new(client)
     end
 
     # Get streaming interface (lazy-loaded).
@@ -79,7 +76,7 @@ module Ibkr
     # @param account_id [String, nil] Account ID (uses client's active account if nil)
     # @return [self] Returns self for method chaining
     def subscribe_portfolio(account_id = nil)
-      target_account = account_id || @client.active_account_id
+      target_account = account_id || client.active_account_id
       websocket.subscribe_to_portfolio_updates(target_account)
       self
     end
@@ -89,7 +86,7 @@ module Ibkr
     # @param account_id [String, nil] Account ID (uses client's active account if nil)
     # @return [self] Returns self for method chaining
     def subscribe_orders(account_id = nil)
-      target_account = account_id || @client.active_account_id
+      target_account = account_id || client.active_account_id
       websocket.subscribe_to_order_status(target_account)
       self
     end
