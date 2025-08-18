@@ -420,12 +420,11 @@ RSpec.describe Ibkr::WebSocket::Authentication do
     end
   end
 
-
   describe "error handling edge cases" do
     it "preserves error context in nested rescues" do
       allow(ibkr_client).to receive(:authenticated?).and_return(true)
       allow(ibkr_client).to receive(:ping).and_raise(StandardError, "Original error")
-      
+
       expect { authentication.authenticate_websocket }.to raise_error(Ibkr::WebSocket::AuthenticationError) do |error|
         expect(error.context[:error]).to eq("Original error")
       end
@@ -434,7 +433,7 @@ RSpec.describe Ibkr::WebSocket::Authentication do
     it "handles nil response edge case in get_session_token_from_tickle" do
       allow(ibkr_client).to receive(:authenticated?).and_return(true)
       allow(ibkr_client).to receive(:ping).and_return(nil)
-      
+
       expect { authentication.authenticate_websocket }.to raise_error(Ibkr::WebSocket::AuthenticationError)
     end
   end
@@ -487,7 +486,7 @@ RSpec.describe Ibkr::WebSocket::Authentication do
         allow(ibkr_client).to receive(:authenticated?).and_return(false)
 
         expect { authentication.authenticate_websocket }.to raise_error(Ibkr::WebSocket::AuthenticationError)
-        
+
         expect(authentication.session_token).to be_nil
         expect(authentication.session_data).to be_nil
         expect(authentication.authenticated?).to be false

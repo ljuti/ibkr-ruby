@@ -60,9 +60,9 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
 
     it "filters out realm parameter specifically" do
       params_with_realm = oauth_params.merge("realm" => "test_realm")
-      
+
       signature_generator.generate_rsa_signature(params_with_realm)
-      
+
       # Verify realm was not included in signature base string
       expect(signature_key).to have_received(:sign).with(
         an_instance_of(OpenSSL::Digest),
@@ -72,12 +72,12 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
 
     it "filters out oauth_signature parameter specifically" do
       params_with_sig = oauth_params.merge("oauth_signature" => "existing_sig")
-      
+
       # We can verify filtering by checking that the result is the same
       # whether oauth_signature is present or not
       result_with_sig = signature_generator.generate_rsa_signature(params_with_sig)
       result_without_sig = signature_generator.generate_rsa_signature(oauth_params)
-      
+
       expect(result_with_sig).to eq(result_without_sig)
       expect(signature_key).to have_received(:sign).twice
     end
@@ -87,9 +87,9 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
         "extra_param" => "should_be_included",
         "another_param" => "also_included"
       )
-      
+
       signature_generator.generate_rsa_signature(params_with_extra)
-      
+
       expect(signature_key).to have_received(:sign).with(
         an_instance_of(OpenSSL::Digest),
         a_string_matching(/extra_param.*another_param|another_param.*extra_param/)
@@ -161,7 +161,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
 
     it "properly uppercases HTTP method" do
       allow(OpenSSL::HMAC).to receive(:digest).and_return("hmac_result")
-      
+
       # Use lowercase method
       result = signature_generator.generate_hmac_signature(
         method: "get",
@@ -169,7 +169,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
         params: oauth_params,
         live_session_token: live_session_token
       )
-      
+
       expect(result).to be_a(String)
       # The base string should contain GET (uppercase)
       expect(OpenSSL::HMAC).to have_received(:digest).with(
@@ -181,7 +181,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
 
     it "handles nil query parameter correctly" do
       allow(OpenSSL::HMAC).to receive(:digest).and_return("hmac_result")
-      
+
       result = signature_generator.generate_hmac_signature(
         method: method,
         url: url,
@@ -190,14 +190,14 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
         query: nil,
         body: body_params
       )
-      
+
       expect(result).to be_a(String)
       expect(OpenSSL::HMAC).to have_received(:digest)
     end
 
     it "handles nil body parameter correctly" do
       allow(OpenSSL::HMAC).to receive(:digest).and_return("hmac_result")
-      
+
       result = signature_generator.generate_hmac_signature(
         method: method,
         url: url,
@@ -206,7 +206,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
         query: query_params,
         body: nil
       )
-      
+
       expect(result).to be_a(String)
       expect(OpenSSL::HMAC).to have_received(:digest)
     end
@@ -318,11 +318,13 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
 
     it "uses Array#sample for randomness" do
       # Create a predictable "random" sequence
-      chars = ("a".."z").to_a + ("A".."Z").to_a + ("0".."9").to_a
+      ("a".."z").to_a
+      ("A".."Z").to_a
+      ("0".."9").to_a
       allow_any_instance_of(Array).to receive(:sample).and_return("X")
-      
+
       nonce = signature_generator.generate_nonce(5)
-      
+
       expect(nonce).to eq("XXXXX")
     end
 
@@ -391,18 +393,18 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
         time_double = double("Time")
         allow(Time).to receive(:now).and_return(time_double)
         allow(time_double).to receive(:to_i).and_return(1234567890)
-        
+
         timestamp = signature_generator.generate_timestamp
-        
+
         expect(timestamp).to eq("1234567890")
         expect(time_double).to have_received(:to_i)
       end
 
       it "converts integer timestamp to string" do
         allow(Time).to receive(:now).and_return(Time.at(1234567890))
-        
+
         timestamp = signature_generator.generate_timestamp
-        
+
         expect(timestamp).to be_a(String)
         expect(timestamp).to match(/\A\d+\z/)
       end
@@ -434,9 +436,9 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
     it "stores dh_random for later use" do
       # Verify @dh_random is set
       expect(signature_generator.dh_random).to be_nil
-      
+
       signature_generator.generate_dh_challenge
-      
+
       expect(signature_generator.dh_random).not_to be_nil
       expect(signature_generator.dh_random).to be_a(Integer)
     end
@@ -444,10 +446,10 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
     it "generates different dh_random values each time" do
       signature_generator.generate_dh_challenge
       first_random = signature_generator.dh_random
-      
+
       signature_generator.generate_dh_challenge
       second_random = signature_generator.dh_random
-      
+
       expect(first_random).not_to eq(second_random)
     end
     context "when generating Diffie-Hellman challenges" do
@@ -472,9 +474,9 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
       it "performs modular exponentiation correctly" do
         # Set up specific values to test the math
         allow(SecureRandom).to receive(:random_number).and_return(5)
-        
+
         challenge = signature_generator.generate_dh_challenge
-        
+
         # g^a mod p where g=2, a=5, p=0x23
         # 2^5 mod 35 = 32 mod 35 = 32 = 0x20
         expect(challenge).to eq("20")
@@ -529,7 +531,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
 
     it "handles empty DH response" do
       signature_generator.generate_dh_challenge
-      
+
       expect {
         signature_generator.compute_live_session_token("")
       }.to raise_error(OpenSSL::BNError)
@@ -538,9 +540,9 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
     it "handles single character hex response" do
       signature_generator.generate_dh_challenge
       allow(OpenSSL::HMAC).to receive(:digest).and_return("hmac_result")
-      
+
       result = signature_generator.compute_live_session_token("a")
-      
+
       expect(result).to be_a(String)
       expect(result).to match(/\A[A-Za-z0-9+\/]+=*\z/)
     end
@@ -576,16 +578,16 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
       it "prepends zero byte when num_bits is divisible by 8" do
         # Test the edge case where (k_bn.num_bits % 8).zero?
         signature_generator.generate_dh_challenge
-        
+
         # Create a response that results in a BN with bits divisible by 8
         # 0x100 = 256 in decimal, which has exactly 9 bits (100000000 in binary)
         # But we need a number with bits divisible by 8
         # 0xFF = 255 has 8 bits
-        even_bits_response = "ff" 
+        even_bits_response = "ff"
         allow(OpenSSL::HMAC).to receive(:digest).and_return("hmac_result")
-        
+
         result = signature_generator.compute_live_session_token(even_bits_response)
-        
+
         expect(result).to be_a(String)
         expect(OpenSSL::HMAC).to have_received(:digest).with(
           "sha1",
@@ -596,13 +598,13 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
 
       it "does not prepend zero byte when num_bits is not divisible by 8" do
         signature_generator.generate_dh_challenge
-        
+
         # Create a response that results in a BN with bits not divisible by 8
         odd_bits_response = "7f" # This creates a BN with 7 bits
         allow(OpenSSL::HMAC).to receive(:digest).and_return("hmac_result")
-        
+
         result = signature_generator.compute_live_session_token(odd_bits_response)
-        
+
         expect(result).to be_a(String)
         expect(OpenSSL::HMAC).to have_received(:digest)
       end
@@ -752,10 +754,10 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
       it "handles flat parameters" do
         params = {"key1" => "value1", "key2" => "value2"}
         result = signature_generator.send(:flatten_params, params)
-        
+
         expect(result).to eq([["key1", "value1"], ["key2", "value2"]])
       end
-      
+
       it "flattens nested hash parameters" do
         params = {
           "outer" => {
@@ -763,21 +765,21 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
           }
         }
         result = signature_generator.send(:flatten_params, params)
-        
+
         expect(result).to eq([["outer[inner]", "value"]])
       end
-      
+
       it "flattens array parameters" do
         params = {"items" => ["a", "b", "c"]}
         result = signature_generator.send(:flatten_params, params)
-        
+
         expect(result).to eq([
           ["items", "a"],
           ["items", "b"],
           ["items", "c"]
         ])
       end
-      
+
       it "handles deeply nested structures" do
         params = {
           "level1" => {
@@ -787,10 +789,10 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
           }
         }
         result = signature_generator.send(:flatten_params, params)
-        
+
         expect(result).to eq([["level1[level2][level3]", "deep_value"]])
       end
-      
+
       it "handles mixed arrays and hashes" do
         params = {
           "parent" => {
@@ -798,7 +800,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
           }
         }
         result = signature_generator.send(:flatten_params, params)
-        
+
         expect(result.size).to eq(2)
         expect(result).to include(["parent[children]", "child1"])
         expect(result).to include(["parent[children]", "child2"])
@@ -808,18 +810,18 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
     describe "#decrypt_prepend" do
       it "decrypts and converts to hex" do
         result = signature_generator.send(:decrypt_prepend)
-        
+
         expect(result).to eq("12345678")
         expect(encryption_key).to have_received(:private_decrypt).with(
           Base64.decode64("dGVzdF9zZWNyZXQ="),
           OpenSSL::PKey::RSA::PKCS1_PADDING
         )
       end
-      
+
       it "handles decryption errors" do
         allow(encryption_key).to receive(:private_decrypt)
           .and_raise(OpenSSL::PKey::RSAError, "Decryption failed")
-        
+
         expect {
           signature_generator.send(:decrypt_prepend)
         }.to raise_error(Ibkr::ConfigurationError, /Failed to decrypt access token secret/)
@@ -836,7 +838,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
           {"query" => "value"},
           {"body" => "data"}
         )
-        
+
         expect(result).to include("GET&")
         expect(result).to include(CGI.escape("https://api.test.com/path"))
         # The parameters are sorted alphabetically in the base string
@@ -844,7 +846,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
         expect(result).to include("oauth_token%3Dtoken")
         expect(result).to include("query%3Dvalue")
       end
-      
+
       it "handles empty query and body" do
         result = signature_generator.send(
           :canonical_base_string,
@@ -854,11 +856,11 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
           {},
           {}
         )
-        
+
         expect(result).to include("POST&")
         expect(result).to include("oauth_token")
       end
-      
+
       it "sorts parameters alphabetically" do
         result = signature_generator.send(
           :canonical_base_string,
@@ -868,7 +870,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
           {},
           {}
         )
-        
+
         # Parameters should be sorted: a=first&m=middle&z=last
         param_part = result.split("&").last
         decoded_params = CGI.unescape(param_part)
@@ -879,19 +881,19 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
     describe "#encoded_base_string" do
       it "creates base string for RSA signature" do
         params = {"oauth_consumer_key" => "key", "oauth_nonce" => "nonce"}
-        
+
         result = signature_generator.send(:encoded_base_string, params)
-        
+
         expect(result).to include("POST&")
         expect(result).to include("live_session_token")
         expect(result).to include("12345678") # decrypted prepend
       end
-      
+
       it "properly encodes URL and parameters" do
         params = {"param with space" => "value&special"}
-        
+
         result = signature_generator.send(:encoded_base_string, params)
-        
+
         expect(result).to include("%")
         expect(result).not_to include(" ")
         expect(result).not_to include("&value")
@@ -941,13 +943,13 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
 
       it "uses SHA1 for HMAC in compute_live_session_token" do
         signature_generator.generate_dh_challenge
-        
+
         expect(OpenSSL::HMAC).to receive(:digest).with(
           "sha1",
           anything,
           anything
         ).and_return("result")
-        
+
         signature_generator.compute_live_session_token("abc123")
       end
 
@@ -957,7 +959,7 @@ RSpec.describe Ibkr::Oauth::SignatureGenerator do
           anything,
           anything
         ).and_return("result")
-        
+
         signature_generator.generate_hmac_signature(
           method: "GET",
           url: "https://test.com",

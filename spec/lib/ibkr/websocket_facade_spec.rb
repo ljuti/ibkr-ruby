@@ -38,7 +38,7 @@ RSpec.describe Ibkr::WebSocketFacade do
       expect(Ibkr::WebSocket::Client).not_to receive(:new)
       expect(Ibkr::WebSocket::Streaming).not_to receive(:new)
       expect(Ibkr::WebSocket::MarketData).not_to receive(:new)
-      
+
       described_class.new(client)
     end
   end
@@ -46,10 +46,10 @@ RSpec.describe Ibkr::WebSocketFacade do
   describe "#websocket" do
     it "creates and memoizes a WebSocket::Client instance" do
       expect(Ibkr::WebSocket::Client).to receive(:new).with(client).once.and_return(websocket_client)
-      
+
       result1 = facade.websocket
       result2 = facade.websocket
-      
+
       expect(result1).to eq(websocket_client)
       expect(result2).to eq(websocket_client)
     end
@@ -67,10 +67,10 @@ RSpec.describe Ibkr::WebSocketFacade do
 
     it "creates and memoizes a WebSocket::Streaming instance" do
       expect(Ibkr::WebSocket::Streaming).to receive(:new).with(websocket_client).once.and_return(streaming_interface)
-      
+
       result1 = facade.streaming
       result2 = facade.streaming
-      
+
       expect(result1).to eq(streaming_interface)
       expect(result2).to eq(streaming_interface)
     end
@@ -88,10 +88,10 @@ RSpec.describe Ibkr::WebSocketFacade do
 
     it "creates and memoizes a WebSocket::MarketData instance" do
       expect(Ibkr::WebSocket::MarketData).to receive(:new).with(websocket_client).once.and_return(market_data_interface)
-      
+
       result1 = facade.real_time_data
       result2 = facade.real_time_data
-      
+
       expect(result1).to eq(market_data_interface)
       expect(result2).to eq(market_data_interface)
     end

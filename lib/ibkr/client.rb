@@ -122,7 +122,7 @@ module Ibkr
     #
     def set_active_account(account_id)
       account_manager.set_active_account(account_id)
-      
+
       # Clear cached services so they pick up the new account
       @services.clear
     end
@@ -159,7 +159,6 @@ module Ibkr
     def accounts
       @services[:accounts] ||= Accounts.new(self)
     end
-
 
     # Fluent interface methods
 
@@ -278,6 +277,5 @@ module Ibkr
     def config_object
       @config
     end
-
   end
 end

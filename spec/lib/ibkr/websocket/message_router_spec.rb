@@ -265,7 +265,7 @@ RSpec.describe Ibkr::WebSocket::MessageRouter do
       before do
         allow(subscription_manager).to receive(:handle_subscription_response)
       end
-      
+
       it "identifies subscription_error with subscription_id and error" do
         message = {subscription_id: "123", error: "failed"}
         router.route(message)
@@ -283,7 +283,7 @@ RSpec.describe Ibkr::WebSocket::MessageRouter do
       before do
         allow(connection_manager).to receive(:set_authenticated!)
       end
-      
+
       it "handles 'sts' topic as status" do
         message = {topic: "sts"}
         router.route(message)
@@ -386,9 +386,8 @@ RSpec.describe Ibkr::WebSocket::MessageRouter do
     describe "data stream handlers" do
       it "handles market_data with symbol" do
         message = {type: "market_data", symbol: "AAPL", data: {price: 150}}
-        expect(websocket_client).to receive(:emit).with(:market_data, 
-          hash_including(symbol: "AAPL", price: 150)
-        )
+        expect(websocket_client).to receive(:emit).with(:market_data,
+          hash_including(symbol: "AAPL", price: 150))
         router.route(message)
       end
 
@@ -418,8 +417,7 @@ RSpec.describe Ibkr::WebSocket::MessageRouter do
           data: {qty: 100}
         }
         expect(websocket_client).to receive(:emit).with(:order_update,
-          hash_including(order_id: "123", status: "filled", qty: 100)
-        )
+          hash_including(order_id: "123", status: "filled", qty: 100))
         router.route(message)
       end
 
@@ -471,9 +469,8 @@ RSpec.describe Ibkr::WebSocket::MessageRouter do
     describe "error message handler" do
       it "handles error with message" do
         message = {type: "error", message: "Something failed"}
-        expect(websocket_client).to receive(:emit).with(:error, 
-          an_instance_of(Ibkr::WebSocket::MessageProcessingError)
-        )
+        expect(websocket_client).to receive(:emit).with(:error,
+          an_instance_of(Ibkr::WebSocket::MessageProcessingError))
         router.route(message)
       end
 
@@ -488,9 +485,8 @@ RSpec.describe Ibkr::WebSocket::MessageRouter do
 
       it "handles error without message" do
         message = {type: "error"}
-        expect(websocket_client).to receive(:emit).with(:error, 
-          an_instance_of(Ibkr::WebSocket::MessageProcessingError)
-        )
+        expect(websocket_client).to receive(:emit).with(:error,
+          an_instance_of(Ibkr::WebSocket::MessageProcessingError))
         router.route(message)
       end
     end
@@ -591,11 +587,11 @@ RSpec.describe Ibkr::WebSocket::MessageRouter do
     it "limits processing times array size" do
       stub_const("Ibkr::WebSocket::Configuration::MAX_PROCESSING_TIMES", 10)
       stub_const("Ibkr::WebSocket::Configuration::PROCESSING_TIMES_CLEANUP_BATCH", 5)
-      
+
       allow(websocket_client).to receive(:send_message)
-      
+
       15.times { router.route({type: "ping"}) }
-      
+
       expect(router.routing_statistics[:processing_times].size).to be <= 10
     end
   end
@@ -603,9 +599,14 @@ RSpec.describe Ibkr::WebSocket::MessageRouter do
   describe "error handling" do
     it "handles errors during message type extraction" do
       message = Object.new
-      def message.is_a?(klass); klass == Hash; end
-      def message.[](key); raise "Error"; end
-      
+      def message.is_a?(klass)
+        klass == Hash
+      end
+
+      def message.[](key)
+        raise "Error"
+      end
+
       result = router.route(message)
       expect(result).to be false
       expect(router.routing_statistics[:routing_errors]).to eq(1)
@@ -614,13 +615,13 @@ RSpec.describe Ibkr::WebSocket::MessageRouter do
     it "emits routing_error with enhanced error" do
       message = {type: "ping"}
       allow(websocket_client).to receive(:send_message).and_raise(StandardError, "Test")
-      
+
       expect(router).to receive(:emit) do |event, data|
         expect(event).to eq(:routing_error)
         expect(data[:error]).to be_a(Ibkr::WebSocket::MessageProcessingError)
         expect(data[:error].context[:message_type]).to eq("ping")
       end
-      
+
       router.route(message)
     end
   end

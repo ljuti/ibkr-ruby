@@ -39,10 +39,10 @@ module Ibkr
     # @raise [Ibkr::ApiError] if account discovery fails
     def discover_accounts
       ensure_authenticated!
-      
+
       @available_accounts = fetch_accounts_from_api
       @active_account_id = determine_active_account
-      
+
       @available_accounts
     end
 
@@ -68,7 +68,7 @@ module Ibkr
     def set_active_account(account_id)
       ensure_authenticated!
       validate_account_available!(account_id)
-      
+
       @active_account_id = account_id
     end
 

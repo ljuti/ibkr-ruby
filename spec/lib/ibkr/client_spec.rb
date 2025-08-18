@@ -123,7 +123,7 @@ RSpec.describe Ibkr::Client do
       # Given new client
       # When created
       client = described_class.new(live: false)
-      
+
       # Then no accounts are available
       expect(client.available_accounts).to eq([])
       expect(client.account_id).to be_nil
@@ -133,7 +133,7 @@ RSpec.describe Ibkr::Client do
       # When creating clients with different live values
       sandbox_client = described_class.new(live: false)
       live_client = described_class.new(live: true)
-      
+
       # Then live parameter is stored
       expect(sandbox_client.live).to be false
       expect(live_client.live).to be true
@@ -234,14 +234,14 @@ RSpec.describe Ibkr::Client do
         allow(mock_oauth_client).to receive(:authenticated?).and_return(true)
         allow(mock_oauth_client).to receive(:initialize_session).and_return(true)
         allow(mock_oauth_client).to receive(:get).and_return({"accounts" => ["DU123456"]})
-        
+
         # Expect account manager to discover accounts
         manager = client.send(:account_manager)
         expect(manager).to receive(:discover_accounts).and_call_original
-        
+
         # When authenticating
         result = client.authenticate
-        
+
         # Then succeeds
         expect(result).to be true
         expect(client.available_accounts).to eq(["DU123456"])
@@ -250,10 +250,10 @@ RSpec.describe Ibkr::Client do
       it "returns OAuth result when authentication fails" do
         # Given OAuth returns specific failure result
         expect(mock_oauth_client).to receive(:authenticate).and_return(false)
-        
+
         # When authenticating
         result = client.authenticate
-        
+
         # Then returns the OAuth result directly
         expect(result).to be false
       end
@@ -262,10 +262,10 @@ RSpec.describe Ibkr::Client do
         # Given OAuth returns specific success result
         expect(mock_oauth_client).to receive(:authenticate).and_return(true)
         allow(mock_oauth_client).to receive(:authenticated?).and_return(true)
-        
+
         # When authenticating
         result = client.authenticate
-        
+
         # Then returns the OAuth result
         expect(result).to be true
       end
@@ -273,14 +273,14 @@ RSpec.describe Ibkr::Client do
       it "discovers accounts only when OAuth succeeds" do
         # Given OAuth fails
         expect(mock_oauth_client).to receive(:authenticate).and_return(false)
-        
+
         # Expect account manager NOT to be called
         manager = client.send(:account_manager)
         expect(manager).not_to receive(:discover_accounts)
-        
+
         # When authenticating
         client.authenticate
-        
+
         # Then accounts remain empty
         expect(client.available_accounts).to be_empty
         expect(client.active_account_id).to be_nil
@@ -368,14 +368,14 @@ RSpec.describe Ibkr::Client do
         # Then delegates to account manager
         manager = authenticated_client.send(:account_manager)
         expect(manager).to receive(:set_active_account).with("DU123456")
-        
+
         authenticated_client.set_active_account("DU123456")
       end
 
       it "clears services cache after account change" do
         # Given authenticated client with cached services
         authenticated_client.accounts  # Cache a service
-        
+
         # When switching accounts (need multiple accounts)
         client = described_class.new(live: false)
         oauth_client = double("oauth_client",
@@ -385,13 +385,13 @@ RSpec.describe Ibkr::Client do
           get: {"accounts" => ["DU111111", "DU222222"]})
         allow(client).to receive(:oauth_client).and_return(oauth_client)
         client.authenticate
-        
+
         # Cache a service
         service1 = client.accounts
-        
+
         # Switch account
         client.set_active_account("DU222222")
-        
+
         # Then service is recreated (not the same instance)
         service2 = client.accounts
         expect(service2).not_to be(service1)
@@ -414,11 +414,11 @@ RSpec.describe Ibkr::Client do
         get: {"accounts" => ["DU123456", "DU555555"]})
       allow(client).to receive(:oauth_client).and_return(oauth_client)
       client.authenticate
-      
+
       # Cache a service for first account
       service1 = client.accounts
       expect(service1.account_id).to eq("DU123456")
-      
+
       # When switching accounts
       client.set_active_account("DU555555")
 
@@ -467,7 +467,7 @@ RSpec.describe Ibkr::Client do
           get: {"accounts" => ["DU123456"]})
         allow(client).to receive(:oauth_client).and_return(oauth_client)
         client.authenticate
-        
+
         # When getting account_id
         # Then returns account manager's active account
         expect(client.account_id).to eq("DU123456")
@@ -491,7 +491,7 @@ RSpec.describe Ibkr::Client do
           get: {"accounts" => ["DU123456"]})
         allow(client).to receive(:oauth_client).and_return(oauth_client)
         client.authenticate
-        
+
         # When getting available_accounts
         # Then returns account manager's accounts
         expect(client.available_accounts).to eq(["DU123456"])
@@ -509,7 +509,7 @@ RSpec.describe Ibkr::Client do
       it "delegates to account_id" do
         # Given client with account
         allow(client).to receive(:account_id).and_return("DELEGATED")
-        
+
         # When getting active_account_id
         # Then delegates to account_id
         expect(client.active_account_id).to eq("DELEGATED")
@@ -527,7 +527,6 @@ RSpec.describe Ibkr::Client do
         expect(live_client.live_mode?).to eq(live_client.live)
       end
     end
-
 
     describe "#accounts" do
       it "creates and memoizes Accounts service instance" do
@@ -864,7 +863,7 @@ RSpec.describe Ibkr::Client do
           get: {"accounts" => ["DU123456"]})
         allow(client).to receive(:oauth_client).and_return(oauth_client)
         client.authenticate
-        
+
         websocket = double("websocket")
         allow(client).to receive(:websocket).and_return(websocket)
         expect(websocket).to receive(:subscribe_to_portfolio_updates).with("DU123456")
@@ -893,7 +892,7 @@ RSpec.describe Ibkr::Client do
           get: {"accounts" => ["DU123456"]})
         allow(client).to receive(:oauth_client).and_return(oauth_client)
         client.authenticate
-        
+
         websocket = double("websocket")
         allow(client).to receive(:websocket).and_return(websocket)
         expect(websocket).to receive(:subscribe_to_order_status).with("DU123456")
@@ -954,8 +953,6 @@ RSpec.describe Ibkr::Client do
       expect(account_services.first).to be_instance_of(Ibkr::Accounts)
     end
   end
-
-
 
   describe "resource cleanup" do
     it "allows garbage collection of large response data" do
