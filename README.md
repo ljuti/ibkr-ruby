@@ -9,6 +9,7 @@ A modern Ruby gem for accessing Interactive Brokers' Web API. Provides real-time
 
 - 🔐 **OAuth 1.0a Authentication** with RSA-SHA256 and HMAC-SHA256 signatures
 - 📊 **Portfolio Management** - Real-time account summaries, positions, and transactions
+- 📈 **Flex Web Service** - Access pre-configured reports from Client Portal
 - 🏦 **Multi-Account Support** - Hybrid approach supporting single and multi-account workflows
 - 🛡️ **Type-Safe Data Models** using Dry::Struct and Dry::Types
 - ⚡ **Error Handling** with custom error classes for different scenarios
@@ -289,6 +290,225 @@ end
 transactions = client.accounts.transactions(contract_id)
 ```
 
+## Flex Web Service
+
+The IBKR Flex Web Service provides access to pre-configured reports that you set up in Client Portal. These reports can include detailed trading activity, positions, cash balances, and performance metrics.
+
+### Prerequisites
+
+1. **Configure Flex Queries in Client Portal**
+   - Log into IBKR Client Portal
+   - Navigate to Settings → Account Settings → Flex Queries
+   - Create a new Flex Query with desired sections (Trades, Positions, Cash, etc.)
+   - Note the Query ID for use in the API
+
+2. **Generate Flex Token**
+   - In Client Portal, go to Settings → Account Settings → Flex Web Service
+   - Generate a new token (valid for 1 year)
+   - Store securely - you'll need this for authentication
+
+### Configuration
+
+```ruby
+# Option 1: Environment variable
+ENV['IBKR_FLEX_TOKEN'] = 'your_flex_token_here'
+
+# Option 2: Configuration
+Ibkr.configure do |config|
+  config.flex_token = 'your_flex_token_here'
+end
+
+# Option 3: Rails credentials (config/credentials.yml.enc)
+ibkr:
+  flex:
+    token: your_flex_token_here
+```
+
+### Basic Usage
+
+```ruby
+# Initialize client
+client = Ibkr::Client.new(default_account_id: "DU123456")
+
+# Access Flex service
+flex = client.flex
+
+# Generate and fetch report (two-step process)
+query_id = "123456"  # Your Query ID from Client Portal
+report = flex.generate_and_fetch(query_id)
+
+# Access report data
+puts "Query: #{report[:query_name]}"
+puts "Accounts: #{report[:accounts]}"
+puts "Transactions: #{report[:transactions].size}"
+puts "Positions: #{report[:positions].size}"
+```
+
+### Advanced Usage
+
+```ruby
+# Step 1: Generate report (returns reference code)
+reference_code = flex.generate_report(query_id)
+puts "Report reference: #{reference_code}"
+
+# Step 2: Fetch report (can be called multiple times)
+report_data = flex.get_report(reference_code)
+
+# Get report as model with convenience methods
+report = flex.get_report(reference_code, format: :model)
+puts report.trades.size
+puts report.positions.first[:symbol]
+puts report.cash_reports.first[:ending_cash]
+
+# Get raw XML (for custom parsing)
+xml_data = flex.get_report(reference_code, format: :raw)
+```
+
+### Service Layer Methods
+
+The Flex service provides high-level methods for specific report types:
+
+```ruby
+# Get transactions for a specific period
+transactions = client.flex.transactions_report(query_id)
+transactions.each do |tx|
+  puts "#{tx.symbol}: #{tx.quantity} @ #{tx.price}"
+  puts "Net amount: #{tx.net_amount}"
+end
+
+# Get current positions
+positions = client.flex.positions_report(query_id)
+positions.each do |pos|
+  puts "#{pos.symbol}: #{pos.position} shares"
+  puts "P&L: #{pos.unrealized_pnl}"
+end
+
+# Get cash report
+cash = client.flex.cash_report(query_id)
+puts "Starting cash: #{cash.starting_cash}"
+puts "Ending cash: #{cash.ending_cash}"
+puts "Net change: #{cash.net_change}"
+
+# Get performance metrics
+performance = client.flex.performance_report(query_id)
+puts "Total P&L: #{performance.total_pnl}"
+puts "Return: #{performance.return_percentage}%"
+```
+
+### Data Models
+
+The Flex service returns typed data models for safety and convenience:
+
+```ruby
+# FlexReport - Main report container
+report = client.flex.get_report(reference_code, format: :model)
+report.reference_code    # => "2332907389"
+report.report_type       # => "AF" (Activity Flex)
+report.generated_at      # => Time object
+report.trades           # => Array of transaction hashes
+report.positions        # => Array of position hashes
+
+# FlexTransaction - Individual trades
+transaction = Ibkr::Models::FlexTransaction.new(tx_data)
+transaction.symbol       # => "AAPL"
+transaction.quantity     # => 100.0
+transaction.price        # => 150.50
+transaction.net_amount   # => 15049.0 (proceeds - commission)
+transaction.stock?       # => true
+transaction.option?      # => false
+
+# FlexPosition - Portfolio positions
+position = Ibkr::Models::FlexPosition.new(pos_data)
+position.symbol          # => "AAPL"
+position.position        # => 100.0
+position.market_value    # => 15500.0
+position.unrealized_pnl  # => 475.0
+position.long?           # => true
+position.pnl_percentage  # => 3.16
+
+# FlexCashReport - Cash balances
+cash = Ibkr::Models::FlexCashReport.new(cash_data)
+cash.currency           # => "USD"
+cash.ending_cash        # => 95234.50
+cash.net_change         # => -4765.50
+cash.total_income       # => 140.0 (dividends + interest)
+
+# FlexPerformance - Performance metrics
+perf = Ibkr::Models::FlexPerformance.new(perf_data)
+perf.nav_end            # => 115234.50
+perf.total_pnl          # => 3765.50
+perf.return_percentage  # => 15.23
+```
+
+### Error Handling
+
+The Flex service provides specific error classes for different scenarios:
+
+```ruby
+begin
+  report = client.flex.generate_report(query_id)
+rescue Ibkr::FlexError::ConfigurationError => e
+  # Token not configured or invalid
+  puts "Configuration error: #{e.message}"
+  puts "Suggestions: #{e.suggestions.join(', ')}"
+rescue Ibkr::FlexError::QueryNotFound => e
+  # Query ID doesn't exist
+  puts "Query not found: #{e.query_id}"
+rescue Ibkr::FlexError::ReportNotReady => e
+  # Report still generating (retry after delay)
+  if e.retryable?
+    sleep(e.retry_after)
+    retry
+  end
+rescue Ibkr::FlexError::RateLimitError => e
+  # Too many requests
+  puts "Rate limited. Retry after #{e.retry_after} seconds"
+rescue Ibkr::FlexError::NetworkError => e
+  # Network connectivity issues
+  puts "Network error: #{e.message}"
+end
+```
+
+### Polling for Report Completion
+
+Large reports may take time to generate. The service handles this automatically:
+
+```ruby
+# Automatic polling with configurable timeout
+report = flex.generate_and_fetch(query_id, 
+  max_wait: 60,        # Maximum seconds to wait
+  poll_interval: 5     # Seconds between checks
+)
+
+# Manual polling
+reference_code = flex.generate_report(query_id)
+report = nil
+
+10.times do
+  begin
+    report = flex.get_report(reference_code)
+    break if report
+  rescue Ibkr::FlexError::ReportNotReady
+    sleep(5)
+    next
+  end
+end
+```
+
+### Thread Safety
+
+All Flex operations are thread-safe:
+
+```ruby
+threads = query_ids.map do |query_id|
+  Thread.new do
+    client.flex.generate_and_fetch(query_id)
+  end
+end
+
+reports = threads.map(&:value)
+```
+
 ## Configuration
 
 ### Environment Configuration
@@ -483,6 +703,7 @@ end
 - OAuth 1.0a authentication flow
 - Multi-account support with hybrid approach
 - Account summary, positions, and transactions
+- Flex Web Service integration for custom reports
 - Type-safe data models with validation
 - Comprehensive error handling
 - Thread-safe operations
@@ -490,6 +711,7 @@ end
 - Fluent interface with chainable operations
 - Enhanced error context with recovery suggestions
 - Refactored test suite (eliminated instance variable anti-patterns)
+- XML parsing for Flex reports
 
 ### In Progress 🔄
 - Full OAuth cryptographic implementation (RSA-SHA256, HMAC-SHA256, Diffie-Hellman)

@@ -8,7 +8,7 @@ This is a **production-ready Ruby gem** called "ibkr" that provides a modern int
 
 ## Current Implementation Status
 
-### ✅ Fully Implemented & Tested (365/403 tests passing, 38 pending)
+### ✅ Fully Implemented & Tested (1524 tests passing, 0 failures, 38 pending)
 
 **Core Business Logic:**
 - **OAuth Authentication System** (`lib/ibkr/oauth/`)
@@ -51,6 +51,15 @@ This is a **production-ready Ruby gem** called "ibkr" that provides a modern int
 
 ### ✅ Recently Added Features
 
+- **Flex Web Service Integration** (`lib/ibkr/flex.rb`, `lib/ibkr/services/flex.rb`)
+  - Two-step report generation workflow (generate → fetch)
+  - Custom XML parser for IBKR's attribute-based XML format
+  - Support for trades, positions, cash reports, and performance metrics
+  - Automatic polling for report completion
+  - Type-safe data models (FlexReport, FlexTransaction, FlexPosition, etc.)
+  - Comprehensive error handling with retry logic
+  - Full test coverage with 84 passing tests
+
 - **Fluent Interface** (`lib/ibkr/fluent_interface.rb`)
   - Chainable API for more readable code
   - Factory methods: `Ibkr.client`, `Ibkr.connect`, `Ibkr.discover_accounts`
@@ -61,6 +70,7 @@ This is a **production-ready Ruby gem** called "ibkr" that provides a modern int
   - Recovery suggestions for common errors
   - Detailed error messages with actionable steps
   - Improved debugging information
+  - Flex-specific error classes with retry guidance
 
 - **Code Quality Improvements**
   - Eliminated anti-patterns and code smells
@@ -83,6 +93,8 @@ lib/ibkr/
 ├── configuration.rb           # Configuration management
 ├── client.rb                  # Main client interface
 ├── accounts.rb                # Account services facade
+├── flex.rb                    # Flex Web Service client
+├── flex_parser.rb            # XML parser for Flex reports
 ├── fluent_interface.rb        # Fluent/chainable API
 ├── oauth.rb                   # OAuth client interface
 ├── oauth/
@@ -93,18 +105,21 @@ lib/ibkr/
 │   └── client.rb             # HTTP client with error handling
 ├── services/
 │   ├── base.rb               # Base service class
-│   └── accounts.rb           # Account-specific services
+│   ├── accounts.rb           # Account-specific services
+│   └── flex.rb               # Flex service layer
 ├── models/
 │   ├── base.rb               # Base model using Dry::Struct
 │   ├── account_summary.rb    # Account summary with AccountValue
 │   ├── position.rb           # Position data with calculations
-│   └── transaction.rb        # Transaction records
+│   ├── transaction.rb        # Transaction records
+│   └── flex_report.rb        # Flex report models
 └── errors/
     ├── base.rb               # Base error with context
     ├── api_error.rb          # API errors with subclasses
     ├── authentication_error.rb
     ├── configuration_error.rb
-    └── rate_limit_error.rb
+    ├── rate_limit_error.rb
+    └── flex_error.rb         # Flex-specific errors
 ```
 
 ## Development Commands

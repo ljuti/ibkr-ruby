@@ -1,0 +1,92 @@
+<FlexQueryResponse queryName="Test Report" type="AF">
+  <FlexStatements count="1">
+    <FlexStatement accountId="DU123456" fromDate="2024-01-01" toDate="2024-01-31"
+      period="Last30CalendarDays" whenGenerated="2024-01-31 15:30:00">
+      <Trades>
+        <Trade symbol="AAPL" description="APPLE INC" conid="265598" tradeDate="2024-01-15"
+          quantity="100" tradePrice="150.50" underlyingConid="" underlyingSymbol="AAPL" strike=""
+          expiry="" putCall="" transactionID="123456789" orderTime="2024-01-15 09:30:00"
+          orderType="LMT" dateTime="2024-01-15 09:31:00" assetCategory="STK" subCategory="COMMON"
+          tradeID="987654321" />
+        <Trade symbol="MSFT" description="MICROSOFT CORP" conid="272093" tradeDate="2024-01-16"
+          quantity="50" tradePrice="380.25" underlyingConid="" underlyingSymbol="MSFT" strike=""
+          expiry="" putCall="" transactionID="123456790" orderTime="2024-01-16 10:15:00"
+          orderType="MKT" dateTime="2024-01-16 10:15:01" assetCategory="STK" subCategory="COMMON"
+          tradeID="987654322" />
+        <Trade symbol="GOOGL" description="ALPHABET INC CL A" conid="208813719" tradeDate="2024-01-17"
+          quantity="-25" tradePrice="142.80" underlyingConid="" underlyingSymbol="GOOGL" strike=""
+          expiry="" putCall="" transactionID="123456791" orderTime="2024-01-17 14:20:00"
+          orderType="LMT" dateTime="2024-01-17 14:20:30" assetCategory="STK" subCategory="COMMON"
+          tradeID="987654323" />
+        <Trade symbol="TSLA" description="TESLA INC" conid="76792991" tradeDate="2024-01-18"
+          quantity="75" tradePrice="215.00" underlyingConid="" underlyingSymbol="TSLA" strike=""
+          expiry="" putCall="" transactionID="123456792" orderTime="2024-01-18 11:00:00"
+          orderType="LMT" dateTime="2024-01-18 11:00:15" assetCategory="STK" subCategory="COMMON"
+          tradeID="987654324" />
+        <Trade symbol="NVDA" description="NVIDIA CORP" conid="4815747" tradeDate="2024-01-19"
+          quantity="30" tradePrice="610.50" underlyingConid="" underlyingSymbol="NVDA" strike=""
+          expiry="" putCall="" transactionID="123456793" orderTime="2024-01-19 13:45:00"
+          orderType="LMT" dateTime="2024-01-19 13:45:20" assetCategory="STK" subCategory="COMMON"
+          tradeID="987654325" />
+        <Trade symbol="AAPL 240216C00180000" description="AAPL 16FEB24 180 C" conid="615539583"
+          tradeDate="2024-01-20" quantity="5" tradePrice="2.35" underlyingConid="265598"
+          underlyingSymbol="AAPL" strike="180" expiry="2024-02-16" putCall="C"
+          transactionID="123456794" orderTime="2024-01-20 09:35:00" orderType="LMT"
+          dateTime="2024-01-20 09:35:30" assetCategory="OPT" subCategory="C" tradeID="987654326" />
+        <Trade symbol="MSFT 240216P00370000" description="MSFT 16FEB24 370 P" conid="615539584"
+          tradeDate="2024-01-21" quantity="-3" tradePrice="4.20" underlyingConid="272093"
+          underlyingSymbol="MSFT" strike="370" expiry="2024-02-16" putCall="P"
+          transactionID="123456795" orderTime="2024-01-21 10:20:00" orderType="LMT"
+          dateTime="2024-01-21 10:20:15" assetCategory="OPT" subCategory="P" tradeID="987654327" />
+      </Trades>
+      <OpenPositions>
+        <OpenPosition symbol="AAPL" description="APPLE INC" conid="265598"
+          position="100" markPrice="155.00" multiplier="1" costBasisPrice="150.50"
+          costBasisMoney="15050.00" fifoPnlUnrealized="450.00" side="Long" levelOfDetail="SUMMARY"
+          openPrice="150.50" holdingPeriodDateTime="2024-01-15 09:31:00" code=""
+          originatingOrderID="123456789" originatingTransactionID="123456789"
+          accruedInt="0" assetCategory="STK" subCategory="COMMON" />
+        <OpenPosition symbol="MSFT" description="MICROSOFT CORP" conid="272093"
+          position="50" markPrice="385.00" multiplier="1" costBasisPrice="380.25"
+          costBasisMoney="19012.50" fifoPnlUnrealized="237.50" side="Long" levelOfDetail="SUMMARY"
+          openPrice="380.25" holdingPeriodDateTime="2024-01-16 10:15:01" code=""
+          originatingOrderID="123456790" originatingTransactionID="123456790"
+          accruedInt="0" assetCategory="STK" subCategory="COMMON" />
+        <OpenPosition symbol="TSLA" description="TESLA INC" conid="76792991"
+          position="75" markPrice="220.00" multiplier="1" costBasisPrice="215.00"
+          costBasisMoney="16125.00" fifoPnlUnrealized="375.00" side="Long" levelOfDetail="SUMMARY"
+          openPrice="215.00" holdingPeriodDateTime="2024-01-18 11:00:15" code=""
+          originatingOrderID="123456792" originatingTransactionID="123456792"
+          accruedInt="0" assetCategory="STK" subCategory="COMMON" />
+        <OpenPosition symbol="NVDA" description="NVIDIA CORP" conid="4815747"
+          position="30" markPrice="620.00" multiplier="1" costBasisPrice="610.50"
+          costBasisMoney="18315.00" fifoPnlUnrealized="285.00" side="Long" levelOfDetail="SUMMARY"
+          openPrice="610.50" holdingPeriodDateTime="2024-01-19 13:45:20" code=""
+          originatingOrderID="123456793" originatingTransactionID="123456793"
+          accruedInt="0" assetCategory="STK" subCategory="COMMON" />
+        <OpenPosition symbol="AAPL 240216C00180000" description="AAPL 16FEB24 180 C" conid="615539583"
+          position="5" markPrice="3.50" multiplier="100" costBasisPrice="2.35"
+          costBasisMoney="1175.00" fifoPnlUnrealized="575.00" side="Long" levelOfDetail="SUMMARY"
+          openPrice="2.35" holdingPeriodDateTime="2024-01-20 09:35:30" code=""
+          originatingOrderID="123456794" originatingTransactionID="123456794"
+          accruedInt="0" assetCategory="OPT" subCategory="C" />
+        <OpenPosition symbol="MSFT 240216P00370000" description="MSFT 16FEB24 370 P" conid="615539584"
+          position="-3" markPrice="3.80" multiplier="100" costBasisPrice="4.20"
+          costBasisMoney="-1260.00" fifoPnlUnrealized="120.00" side="Short" levelOfDetail="SUMMARY"
+          openPrice="4.20" holdingPeriodDateTime="2024-01-21 10:20:15" code=""
+          originatingOrderID="123456795" originatingTransactionID="123456795"
+          accruedInt="0" assetCategory="OPT" subCategory="P" />
+      </OpenPositions>
+      <CashReport>
+        <CashReportCurrency currency="USD" startingCash="100000.00" endingCash="95234.50"
+          deposits="0" withdrawals="0" dividends="125.00" brokerInterest="15.00"
+          brokerFees="-45.00" other="0" endingCashPaxos="0" />
+      </CashReport>
+      <Performance>
+        <PerformanceSummary reportDate="2024-01-31" netLiquidationValue="115234.50"
+          cash="95234.50" stock="71052.50" option="1915.00" dividend="125.00"
+          interest="15.00" commission="-245.00" other="-45.00" total="2442.00" />
+      </Performance>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

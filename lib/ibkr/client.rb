@@ -160,6 +160,11 @@ module Ibkr
       @services[:accounts] ||= Accounts.new(self)
     end
 
+    # Flex Web Service accessor
+    def flex
+      @services[:flex] ||= Services::Flex.new(self)
+    end
+
     # Fluent interface methods
 
     # Authenticate and return self for chaining

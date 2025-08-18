@@ -1,0 +1,7 @@
+<FlexStatementResponse timestamp='18 August, 2025 09:20 AM EDT'>
+  <Status>Success</Status>
+  <ReferenceCode>
+    2332907389</ReferenceCode>
+  <Url>
+    https://gdcdyn.interactivebrokers.com/AccountManagement/FlexWebService/GetStatement</Url>
+</FlexStatementResponse>

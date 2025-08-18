@@ -8,7 +8,7 @@ module Ibkr
     config_name :ibkr
 
     # Environment and connection settings
-    attr_config :environment, :base_url, :timeout, :retries
+    attr_config :environment, :base_url, :timeout, :open_timeout, :retries
 
     # OAuth credentials
     attr_config :consumer_key, :access_token, :access_token_secret
@@ -21,6 +21,9 @@ module Ibkr
 
     # Optional settings
     attr_config :logger_level, :user_agent
+    
+    # Flex Web Service settings
+    attr_config :flex_token
 
     # Defaults
     def initialize(*)

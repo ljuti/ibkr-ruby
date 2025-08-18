@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlexStatementResponse timestamp="01 February, 2024 11:59 PM EST">
+  <Status>Warn</Status>
+  <ErrorCode>1003</ErrorCode>
+  <ErrorMessage>Query ID not found.</ErrorMessage>
+</FlexStatementResponse>
