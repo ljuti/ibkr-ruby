@@ -7,26 +7,24 @@ RSpec.describe Ibkr::Flex do
   let(:config) { instance_double(Ibkr::Configuration, flex_token: token, timeout: 30, open_timeout: 10) }
   let(:client) { instance_double(Ibkr::Client, config: config) }
   let(:flex_client) { described_class.new(token: token, config: config, client: client) }
-  
+
   let(:query_id) { "123456" }
   let(:reference_code) { "2332907389" }
-  
+
   let(:success_generate_response) do
     instance_double(Faraday::Response,
       success?: true,
-      body: File.read(File.join(File.dirname(__FILE__), '../../fixtures/api_responses/flex/generate_success.xml'))
-    )
+      body: File.read(File.join(File.dirname(__FILE__), "../../fixtures/api_responses/flex/generate_success.xml")))
   end
-  
+
   let(:error_generate_response) do
     instance_double(Faraday::Response,
       success?: true,
-      body: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<FlexStatementResponse><Status>Failed</Status><ErrorCode>1003</ErrorCode><ErrorMessage>Query not found</ErrorMessage></FlexStatementResponse>"
-    )
+      body: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<FlexStatementResponse><Status>Failed</Status><ErrorCode>1003</ErrorCode><ErrorMessage>Query not found</ErrorMessage></FlexStatementResponse>")
   end
-  
+
   let(:report_xml) do
-    File.read(File.join(File.dirname(__FILE__), '../../fixtures/api_responses/flex/fetch_success.xml'))
+    File.read(File.join(File.dirname(__FILE__), "../../fixtures/api_responses/flex/fetch_success.xml"))
   end
 
   describe "initialization" do
@@ -50,15 +48,15 @@ RSpec.describe Ibkr::Flex do
       it "fetches token from Rails credentials" do
         rails_double = double("Rails")
         stub_const("Rails", rails_double)
-        
+
         # Stub Rails.respond_to?(:application) to return true
         allow(rails_double).to receive(:respond_to?).with(:application).and_return(true)
-        
+
         app_double = double("Rails::Application")
         allow(rails_double).to receive(:application).and_return(app_double)
         allow(app_double).to receive(:respond_to?).with(:credentials).and_return(true)
         allow(app_double).to receive(:credentials).and_return(double(dig: "rails_token"))
-        
+
         flex = described_class.new(config: instance_double(Ibkr::Configuration, flex_token: nil, timeout: 30, open_timeout: 10))
         expect(flex.token).to eq("rails_token")
       end
@@ -68,7 +66,7 @@ RSpec.describe Ibkr::Flex do
       it "raises ConfigurationError" do
         # Ensure Rails constant doesn't interfere
         hide_const("Rails") if defined?(Rails)
-        
+
         expect {
           described_class.new(token: nil, config: instance_double(Ibkr::Configuration, flex_token: nil, timeout: 30, open_timeout: 10))
         }.to raise_error(Ibkr::FlexError::ConfigurationError, /token not configured/)
@@ -126,8 +124,8 @@ RSpec.describe Ibkr::Flex do
     context "when rate limited" do
       it "raises RateLimitError" do
         rate_limit_response = instance_double(Faraday::Response, status: 429)
-        rate_limit_error = Faraday::ClientError.new("Rate limited", { status: 429, response: rate_limit_response })
-        
+        rate_limit_error = Faraday::ClientError.new("Rate limited", {status: 429, response: rate_limit_response})
+
         expect(mock_http_client).to receive(:get)
           .and_raise(rate_limit_error)
 
@@ -160,8 +158,7 @@ RSpec.describe Ibkr::Flex do
     let(:success_report_response) do
       instance_double(Faraday::Response,
         success?: true,
-        body: report_xml
-      )
+        body: report_xml)
     end
 
     before do
@@ -175,7 +172,7 @@ RSpec.describe Ibkr::Flex do
           .and_return(success_report_response)
 
         result = flex_client.get_report(reference_code)
-        
+
         expect(result).to be_a(Hash)
         expect(result[:query_name]).to eq("Test Report")
         expect(result[:type]).to eq("AF")
@@ -207,8 +204,7 @@ RSpec.describe Ibkr::Flex do
       let(:not_ready_response) do
         instance_double(Faraday::Response,
           success?: true,
-          body: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<FlexStatementResponse><Status>InProgress</Status><ErrorCode>1009</ErrorCode><ErrorMessage>Report not ready</ErrorMessage></FlexStatementResponse>"
-        )
+          body: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<FlexStatementResponse><Status>InProgress</Status><ErrorCode>1009</ErrorCode><ErrorMessage>Report not ready</ErrorMessage></FlexStatementResponse>")
       end
 
       it "raises ReportNotReady error" do
@@ -249,31 +245,31 @@ RSpec.describe Ibkr::Flex do
     context "when report is ready immediately" do
       it "returns the report data" do
         expect(flex_client).to receive(:generate_report).with(query_id).and_return(reference_code)
-        expect(flex_client).to receive(:get_report).with(reference_code).and_return({ data: "test" })
+        expect(flex_client).to receive(:get_report).with(reference_code).and_return({data: "test"})
 
         result = flex_client.generate_and_fetch(query_id)
-        expect(result).to eq({ data: "test" })
+        expect(result).to eq({data: "test"})
       end
     end
 
     context "when report needs polling" do
       it "retries until report is ready" do
         expect(flex_client).to receive(:generate_report).with(query_id).and_return(reference_code)
-        
+
         call_count = 0
         expect(flex_client).to receive(:get_report).exactly(3).times do
           call_count += 1
           if call_count < 3
             raise Ibkr::FlexError::ReportNotReady.new("Not ready")
           else
-            { data: "test" }
+            {data: "test"}
           end
         end
 
         allow(flex_client).to receive(:sleep)
 
         result = flex_client.generate_and_fetch(query_id, poll_interval: 0.1)
-        expect(result).to eq({ data: "test" })
+        expect(result).to eq({data: "test"})
       end
     end
 
@@ -309,7 +305,7 @@ RSpec.describe Ibkr::Flex do
     context "with valid XML" do
       it "extracts transactions correctly" do
         result = flex_client.parse_report(report_xml)
-        
+
         expect(result[:transactions]).to be_an(Array)
         expect(result[:transactions].first).to include(
           transaction_id: "987654321",
@@ -322,7 +318,7 @@ RSpec.describe Ibkr::Flex do
 
       it "extracts positions correctly" do
         result = flex_client.parse_report(report_xml)
-        
+
         expect(result[:positions]).to be_an(Array)
         position = result[:positions].first
         expect(position).to include(
@@ -335,7 +331,7 @@ RSpec.describe Ibkr::Flex do
 
       it "extracts account information" do
         result = flex_client.parse_report(report_xml)
-        
+
         expect(result[:accounts]).to include("DU123456")
       end
     end
@@ -353,7 +349,7 @@ RSpec.describe Ibkr::Flex do
 
     context "with already parsed hash" do
       it "returns the hash unchanged" do
-        input = { already: "parsed" }
+        input = {already: "parsed"}
         result = flex_client.parse_report(input)
         expect(result).to eq(input)
       end

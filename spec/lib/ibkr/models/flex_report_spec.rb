@@ -83,7 +83,7 @@ RSpec.describe Ibkr::Models::FlexReport do
   describe "initialization" do
     it "creates a valid FlexReport model" do
       report = described_class.new(flex_report_data)
-      
+
       expect(report).to be_a(described_class)
       expect(report.reference_code).to eq("TEST_REF_123456")
       expect(report.report_type).to eq("AF")
@@ -93,7 +93,7 @@ RSpec.describe Ibkr::Models::FlexReport do
 
     it "stores the parsed data" do
       report = described_class.new(flex_report_data)
-      
+
       expect(report.data).to be_a(Hash)
       expect(report.data[:query_name]).to eq("Portfolio Activity Report")
       expect(report.data[:accounts]).to eq(["DU123456"])
@@ -154,7 +154,7 @@ RSpec.describe Ibkr::Models::FlexReport do
         generated_at: Time.now.to_i * 1000,
         data: {}
       )
-      
+
       expect(minimal_report.trades).to eq([])
       expect(minimal_report.positions).to eq([])
       expect(minimal_report.cash_reports).to eq([])
@@ -169,7 +169,7 @@ RSpec.describe Ibkr::Models::FlexReport do
         transaction_id: "TX001",
         symbol: "AAPL"
       }
-      
+
       report = described_class.new(single_trade_data)
       expect(report.trades).to be_an(Array)
       expect(report.trades.size).to eq(1)
@@ -179,7 +179,7 @@ RSpec.describe Ibkr::Models::FlexReport do
       no_trades_data = flex_report_data.dup
       no_trades_data[:data] = flex_report_data[:data].dup
       no_trades_data[:data][:transactions] = nil
-      
+
       report = described_class.new(no_trades_data)
       expect(report.trades).to eq([])
     end
@@ -214,9 +214,9 @@ RSpec.describe Ibkr::Models::FlexReport do
           performance: nil
         }
       }
-      
+
       report = described_class.new(report_data)
-      
+
       expect(report.reference_code).to eq("2332907389")
       expect(report.trades.size).to eq(5)
       expect(report.account_id).to eq("DU123456")
@@ -242,7 +242,7 @@ RSpec.describe Ibkr::Models::FlexReport do
 
     it "creates a valid transaction model" do
       transaction = Ibkr::Models::FlexTransaction.new(transaction_data)
-      
+
       expect(transaction.transaction_id).to eq("987654321")
       expect(transaction.symbol).to eq("AAPL")
       expect(transaction.quantity).to eq(100.0)
@@ -258,7 +258,7 @@ RSpec.describe Ibkr::Models::FlexReport do
       stock_transaction = Ibkr::Models::FlexTransaction.new(transaction_data)
       expect(stock_transaction).to be_stock
       expect(stock_transaction).not_to be_option
-      
+
       option_data = transaction_data.merge(asset_class: "OPT")
       option_transaction = Ibkr::Models::FlexTransaction.new(option_data)
       expect(option_transaction).to be_option
@@ -284,7 +284,7 @@ RSpec.describe Ibkr::Models::FlexReport do
 
     it "creates a valid position model" do
       position = Ibkr::Models::FlexPosition.new(position_data)
-      
+
       expect(position.symbol).to eq("AAPL")
       expect(position.position).to eq(100.0)
       expect(position.unrealized_pnl).to eq(475.0)
@@ -292,7 +292,7 @@ RSpec.describe Ibkr::Models::FlexReport do
 
     it "calculates position metrics" do
       position = Ibkr::Models::FlexPosition.new(position_data)
-      
+
       expect(position.total_pnl).to eq(475.0) # unrealized + realized
       expect(position).to be_long
       expect(position).not_to be_short
@@ -318,7 +318,7 @@ RSpec.describe Ibkr::Models::FlexReport do
 
     it "creates a valid cash report model" do
       cash_report = Ibkr::Models::FlexCashReport.new(cash_data)
-      
+
       expect(cash_report.account_id).to eq("DU123456")
       expect(cash_report.ending_cash).to eq(95234.50)
       expect(cash_report.currency).to eq("USD")
@@ -349,7 +349,7 @@ RSpec.describe Ibkr::Models::FlexReport do
 
     it "creates a valid performance model" do
       performance = Ibkr::Models::FlexPerformance.new(performance_data)
-      
+
       expect(performance.account_id).to eq("DU123456")
       expect(performance.nav_end).to eq(115234.50)
       expect(performance.realized_pnl).to eq(2442.0)
@@ -357,7 +357,7 @@ RSpec.describe Ibkr::Models::FlexReport do
 
     it "calculates performance metrics" do
       performance = Ibkr::Models::FlexPerformance.new(performance_data)
-      
+
       expect(performance.total_pnl).to eq(3765.50) # realized + unrealized
       expect(performance.net_performance).to eq(15234.50) # nav_end - nav_start - deposits + withdrawals
       expect(performance.return_percentage).to be_within(0.01).of(15.23) # (net_performance / start) * 100

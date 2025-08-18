@@ -10,20 +10,18 @@ module Ibkr
         @query_id = query_id
         @reference_code = reference_code
         @details = details || context || {}
-        
+
         enhanced_context = @details.merge(
           error_code: @error_code,
           query_id: query_id,
           reference_code: reference_code
         ).merge(extra_args).compact
-        
+
         super(message, context: enhanced_context)
       end
-      
-      def details
-        @details
-      end
-      
+
+      attr_reader :details
+
       def code
         @error_code
       end

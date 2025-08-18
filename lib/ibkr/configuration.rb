@@ -21,7 +21,7 @@ module Ibkr
 
     # Optional settings
     attr_config :logger_level, :user_agent
-    
+
     # Flex Web Service settings
     attr_config :flex_token
 

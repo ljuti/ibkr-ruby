@@ -7,10 +7,10 @@ RSpec.describe Ibkr::Services::Flex do
   let(:config) { instance_double(Ibkr::Configuration, flex_token: "test_token") }
   let(:flex_service) { described_class.new(client) }
   let(:flex_client) { instance_double(Ibkr::Flex) }
-  
+
   let(:query_id) { "123456" }
   let(:reference_code) { "ABC123DEF456" }
-  
+
   before do
     allow(Ibkr::Flex).to receive(:new).and_return(flex_client)
   end
@@ -22,17 +22,17 @@ RSpec.describe Ibkr::Services::Flex do
         config: config,
         client: client
       ).and_return(flex_client)
-      
+
       described_class.new(client)
     end
-    
+
     it "accepts explicit token" do
       expect(Ibkr::Flex).to receive(:new).with(
         token: "explicit_token",
         config: config,
         client: client
       ).and_return(flex_client)
-      
+
       described_class.new(client, token: "explicit_token")
     end
   end
@@ -40,7 +40,7 @@ RSpec.describe Ibkr::Services::Flex do
   describe "#generate_report" do
     it "delegates to Flex client" do
       expect(flex_client).to receive(:generate_report).with(query_id).and_return(reference_code)
-      
+
       result = flex_service.generate_report(query_id)
       expect(result).to eq(reference_code)
     end
@@ -48,16 +48,16 @@ RSpec.describe Ibkr::Services::Flex do
 
   describe "#get_report" do
     it "delegates to Flex client with default format" do
-      report_data = { data: "test" }
+      report_data = {data: "test"}
       expect(flex_client).to receive(:get_report).with(reference_code, format: :hash).and_return(report_data)
-      
+
       result = flex_service.get_report(reference_code)
       expect(result).to eq(report_data)
     end
-    
+
     it "passes format option" do
       expect(flex_client).to receive(:get_report).with(reference_code, format: :raw).and_return("<xml/>")
-      
+
       result = flex_service.get_report(reference_code, format: :raw)
       expect(result).to eq("<xml/>")
     end
@@ -65,25 +65,25 @@ RSpec.describe Ibkr::Services::Flex do
 
   describe "#generate_and_fetch" do
     it "delegates to Flex client with default parameters" do
-      report_data = { data: "test" }
+      report_data = {data: "test"}
       expect(flex_client).to receive(:generate_and_fetch).with(
         query_id,
         max_wait: 60,
         poll_interval: 5
       ).and_return(report_data)
-      
+
       result = flex_service.generate_and_fetch(query_id)
       expect(result).to eq(report_data)
     end
-    
+
     it "passes custom wait and poll parameters" do
-      report_data = { data: "test" }
+      report_data = {data: "test"}
       expect(flex_client).to receive(:generate_and_fetch).with(
         query_id,
         max_wait: 120,
         poll_interval: 10
       ).and_return(report_data)
-      
+
       result = flex_service.generate_and_fetch(query_id, max_wait: 120, poll_interval: 10)
       expect(result).to eq(report_data)
     end
@@ -109,21 +109,21 @@ RSpec.describe Ibkr::Services::Flex do
         ]
       }
     end
-    
+
     it "returns FlexTransaction models" do
       expect(flex_client).to receive(:generate_and_fetch).with(query_id, max_wait: 60, poll_interval: 5).and_return(transaction_data)
-      
+
       result = flex_service.transactions_report(query_id)
-      
+
       expect(result).to be_an(Array)
       expect(result.first).to be_a(Ibkr::Models::FlexTransaction)
       expect(result.first.symbol).to eq("AAPL")
       expect(result.first.quantity).to eq(100)
     end
-    
+
     it "returns empty array when no transactions" do
       expect(flex_client).to receive(:generate_and_fetch).and_return({})
-      
+
       result = flex_service.transactions_report(query_id)
       expect(result).to eq([])
     end
@@ -148,21 +148,21 @@ RSpec.describe Ibkr::Services::Flex do
         ]
       }
     end
-    
+
     it "returns FlexPosition models" do
       expect(flex_client).to receive(:generate_and_fetch).with(query_id, max_wait: 60, poll_interval: 5).and_return(position_data)
-      
+
       result = flex_service.positions_report(query_id)
-      
+
       expect(result).to be_an(Array)
       expect(result.first).to be_a(Ibkr::Models::FlexPosition)
       expect(result.first.symbol).to eq("AAPL")
       expect(result.first.unrealized_pnl).to eq(450.00)
     end
-    
+
     it "returns empty array when no positions" do
       expect(flex_client).to receive(:generate_and_fetch).and_return({})
-      
+
       result = flex_service.positions_report(query_id)
       expect(result).to eq([])
     end
@@ -187,20 +187,20 @@ RSpec.describe Ibkr::Services::Flex do
         ]
       }
     end
-    
+
     it "returns FlexCashReport model" do
       expect(flex_client).to receive(:generate_and_fetch).with(query_id, max_wait: 60, poll_interval: 5).and_return(cash_data)
-      
+
       result = flex_service.cash_report(query_id)
-      
+
       expect(result).to be_a(Ibkr::Models::FlexCashReport)
       expect(result.ending_cash).to eq(105000)
       expect(result.net_change).to eq(5000)
     end
-    
+
     it "returns nil when no cash report" do
       expect(flex_client).to receive(:generate_and_fetch).and_return({})
-      
+
       result = flex_service.cash_report(query_id)
       expect(result).to be_nil
     end
@@ -226,20 +226,20 @@ RSpec.describe Ibkr::Services::Flex do
         ]
       }
     end
-    
+
     it "returns FlexPerformance model" do
       expect(flex_client).to receive(:generate_and_fetch).with(query_id, max_wait: 60, poll_interval: 5).and_return(performance_data)
-      
+
       result = flex_service.performance_report(query_id)
-      
+
       expect(result).to be_a(Ibkr::Models::FlexPerformance)
       expect(result.total_pnl).to eq(8000)
       expect(result.return_percentage).to eq(10.0)
     end
-    
+
     it "returns nil when no performance report" do
       expect(flex_client).to receive(:generate_and_fetch).and_return({})
-      
+
       result = flex_service.performance_report(query_id)
       expect(result).to be_nil
     end
@@ -252,14 +252,14 @@ RSpec.describe Ibkr::Services::Flex do
         expect(flex_service.available?).to be true
       end
     end
-    
+
     context "when token is not configured" do
       it "returns false" do
         allow(flex_client).to receive(:token).and_return(nil)
         expect(flex_service.available?).to be false
       end
     end
-    
+
     context "when error occurs checking token" do
       it "returns false" do
         allow(flex_client).to receive(:token).and_raise(StandardError)
@@ -271,16 +271,16 @@ RSpec.describe Ibkr::Services::Flex do
   describe "integration with client" do
     let(:real_client) { Ibkr::Client.new(live: false) }
     let(:real_config) { real_client.config }
-    
+
     before do
       allow(real_config).to receive(:flex_token).and_return("test_token")
     end
-    
+
     it "is accessible through client.flex" do
       flex_service = real_client.flex
       expect(flex_service).to be_a(described_class)
     end
-    
+
     it "memoizes the flex service instance" do
       service1 = real_client.flex
       service2 = real_client.flex

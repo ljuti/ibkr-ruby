@@ -10,10 +10,10 @@ module Ibkr
 
     def parse(xml_string)
       # Remove XML declaration if present
-      clean_xml = xml_string.sub(/\A<\?xml[^>]*\?>\s*/m, '')
+      clean_xml = xml_string.sub(/\A<\?xml[^>]*\?>\s*/m, "")
       doc = Ox.parse(clean_xml)
       return {} if doc.nil? || !doc.respond_to?(:name) || doc.name.nil?
-      { doc.name.to_sym => parse_element(doc) }
+      {doc.name.to_sym => parse_element(doc)}
     end
 
     private
@@ -23,11 +23,11 @@ module Ibkr
 
       # Extract attributes
       attrs = element.attributes.transform_keys(&:to_sym) if element.respond_to?(:attributes)
-      
+
       # Extract child nodes
       children = {}
       text_content = nil
-      
+
       element.nodes&.each do |node|
         case node
         when String
@@ -35,7 +35,7 @@ module Ibkr
         when Ox::Element
           key = node.name.to_sym
           value = parse_element(node)
-          
+
           if children[key]
             # Convert to array if multiple elements with same name
             children[key] = [children[key]] unless children[key].is_a?(Array)
@@ -45,7 +45,7 @@ module Ibkr
           end
         end
       end
-      
+
       # Return appropriate structure
       if children.empty? && attrs.nil?
         text_content

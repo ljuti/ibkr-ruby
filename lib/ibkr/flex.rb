@@ -8,7 +8,7 @@ require_relative "models/flex_report"
 module Ibkr
   # Client for IBKR Flex Web Service
   #
-  # The Flex Web Service provides access to pre-configured reports that you set up 
+  # The Flex Web Service provides access to pre-configured reports that you set up
   # in IBKR Client Portal. These reports can include trading activity, positions,
   # cash balances, and performance metrics.
   #
@@ -25,13 +25,13 @@ module Ibkr
 
     # Flex API version to use
     FLEX_API_VERSION = 3
-    
+
     # Base URL for Flex Web Service endpoints
     FLEX_BASE_URL = "https://ndcdyn.interactivebrokers.com"
-    
+
     # Maximum number of retries for report generation
     MAX_RETRIES = 10
-    
+
     # Delay in seconds between retries
     RETRY_DELAY = 5
 
@@ -46,7 +46,7 @@ module Ibkr
       @client = client
       @config = config || client&.config || Ibkr.configuration
       @token = token || @config.flex_token || fetch_token_from_credentials
-      
+
       validate_configuration!
     end
 
@@ -65,13 +65,13 @@ module Ibkr
     # @raise [FlexError::NetworkError] if network error occurs
     def generate_report(query_id, max_retries: MAX_RETRIES)
       validate_query_id!(query_id)
-      
+
       response = http_client.get("/AccountManagement/FlexWebService/SendRequest", {
         t: token,
         q: query_id,
         v: FLEX_API_VERSION
       })
-      
+
       handle_generate_response(response, query_id)
     rescue Faraday::Error => e
       handle_network_error(e, "generate report", query_id: query_id)
@@ -95,13 +95,13 @@ module Ibkr
     # @raise [FlexError::NetworkError] if network error occurs
     def get_report(reference_code, format: :hash)
       validate_reference_code!(reference_code)
-      
+
       response = http_client.get("/AccountManagement/FlexWebService/GetStatement", {
         t: token,
         q: reference_code,
         v: FLEX_API_VERSION
       })
-      
+
       handle_get_response(response, reference_code, format)
     rescue Faraday::Error => e
       handle_network_error(e, "fetch report", reference_code: reference_code)
@@ -122,13 +122,13 @@ module Ibkr
     # @raise [FlexError::InvalidReference] if reference expires while waiting
     def generate_and_fetch(query_id, max_wait: 60, poll_interval: RETRY_DELAY)
       reference_code = generate_report(query_id)
-      
+
       start_time = Time.now
       while Time.now - start_time < max_wait
         begin
           report = get_report(reference_code)
           return report if report
-        rescue FlexError::ReportNotReady => e
+        rescue FlexError::ReportNotReady
           sleep(poll_interval)
           next
         rescue FlexError::InvalidReference
@@ -139,7 +139,7 @@ module Ibkr
           )
         end
       end
-      
+
       raise FlexError::ReportNotReady.new(
         "Report not ready after #{max_wait} seconds",
         reference_code: reference_code,
@@ -156,11 +156,11 @@ module Ibkr
     # @raise [FlexError::ParseError] if XML parsing fails
     def parse_report(xml_data)
       return xml_data if xml_data.is_a?(Hash)
-      
+
       begin
         parsed = FlexParser.parse(xml_data)
         extract_report_data(parsed)
-      rescue StandardError => e
+      rescue => e
         raise FlexError::ParseError.new(
           "Failed to parse XML report: #{e.message}",
           xml_content: xml_data.to_s[0..500]
@@ -193,13 +193,13 @@ module Ibkr
     def fetch_token_from_credentials
       return nil unless defined?(::Rails)
       return nil unless ::Rails.respond_to?(:application)
-      
+
       app = ::Rails.application
       return nil unless app.respond_to?(:credentials)
-      
+
       app.credentials.dig(:ibkr, :flex, :token) ||
         app.credentials.dig(:ibkr, :flex_token)
-    rescue StandardError
+    rescue
       nil
     end
 
@@ -215,20 +215,20 @@ module Ibkr
 
     def handle_generate_response(response, query_id)
       return nil unless response.success?
-      
+
       data = FlexParser.parse(response.body)
-      
+
       if data[:FlexStatementResponse]
         statement_response = data[:FlexStatementResponse]
-        
+
         # Handle both nested :value key and direct value
         status = statement_response[:Status]
         status = status[:value] if status.is_a?(Hash)
-        
+
         if status == "Success"
           ref_code = statement_response[:ReferenceCode]
           ref_code = ref_code[:value] if ref_code.is_a?(Hash)
-          return ref_code&.strip
+          ref_code&.strip
         else
           handle_flex_error(statement_response, query_id: query_id)
         end
@@ -243,19 +243,19 @@ module Ibkr
 
     def handle_get_response(response, reference_code, format)
       return nil unless response.success?
-      
+
       # Check if response is an error response
       parsed = FlexParser.parse(response.body)
       if parsed[:FlexStatementResponse]
         statement_response = parsed[:FlexStatementResponse]
         status = statement_response[:Status]
         status = status[:value] if status.is_a?(Hash)
-        
+
         if status != "Success"
           handle_flex_error(statement_response, reference_code: reference_code)
         end
       end
-      
+
       case format
       when :raw
         response.body
@@ -271,15 +271,15 @@ module Ibkr
 
     def handle_flex_error(response_data, context = {})
       status = response_data[:Status]
-      status = status[:value] if status.is_a?(Hash)
-      
+      status[:value] if status.is_a?(Hash)
+
       error_code = response_data[:ErrorCode]
       error_code = error_code[:value] if error_code.is_a?(Hash)
-      
+
       error_message = response_data[:ErrorMessage]
       error_message = error_message[:value] if error_message.is_a?(Hash)
       error_message ||= "Unknown error"
-      
+
       case error_code.to_s
       when "1003", "1004"
         raise FlexError::QueryNotFound.new(
@@ -338,10 +338,10 @@ module Ibkr
 
     def extract_report_data(parsed_xml)
       return parsed_xml if parsed_xml.is_a?(Hash) && !parsed_xml[:FlexQueryResponse]
-      
+
       if parsed_xml[:FlexQueryResponse]
         query_response = parsed_xml[:FlexQueryResponse]
-        
+
         {
           query_name: query_response[:queryName],
           type: query_response[:type],
@@ -358,10 +358,10 @@ module Ibkr
 
     def extract_accounts(query_response)
       return nil unless query_response[:FlexStatements]
-      
+
       statement = query_response[:FlexStatements][:FlexStatement]
       return nil unless statement
-      
+
       # Handle single statement or array of statements
       statements = statement.is_a?(Array) ? statement : [statement]
       statements.map { |s| s[:accountId] }.uniq.compact
@@ -369,13 +369,13 @@ module Ibkr
 
     def extract_transactions(query_response)
       return nil unless query_response[:FlexStatements]
-      
+
       statement = query_response[:FlexStatements][:FlexStatement]
       return nil unless statement
-      
+
       statements = statement.is_a?(Array) ? statement : [statement]
       transactions = []
-      
+
       statements.each do |stmt|
         if stmt[:Trades] && stmt[:Trades][:Trade]
           trades = stmt[:Trades][:Trade]
@@ -383,19 +383,19 @@ module Ibkr
           transactions.concat(trades.map { |t| parse_transaction(t, stmt[:accountId]) })
         end
       end
-      
+
       transactions.compact
     end
 
     def extract_positions(query_response)
       return nil unless query_response[:FlexStatements]
-      
+
       statement = query_response[:FlexStatements][:FlexStatement]
       return nil unless statement
-      
+
       statements = statement.is_a?(Array) ? statement : [statement]
       positions = []
-      
+
       statements.each do |stmt|
         if stmt[:OpenPositions] && stmt[:OpenPositions][:OpenPosition]
           open_positions = stmt[:OpenPositions][:OpenPosition]
@@ -403,45 +403,45 @@ module Ibkr
           positions.concat(open_positions.map { |p| parse_position(p, stmt[:accountId]) })
         end
       end
-      
+
       positions.compact
     end
 
     def extract_cash_report(query_response)
       return nil unless query_response[:FlexStatements]
-      
+
       statement = query_response[:FlexStatements][:FlexStatement]
       return nil unless statement
-      
+
       statements = statement.is_a?(Array) ? statement : [statement]
       cash_reports = []
-      
+
       statements.each do |stmt|
         if stmt[:CashReport] && stmt[:CashReport][:CashReportCurrency]
           cash_data = stmt[:CashReport][:CashReportCurrency]
           cash_reports << parse_cash_report(cash_data, stmt[:accountId])
         end
       end
-      
+
       cash_reports.compact
     end
 
     def extract_performance(query_response)
       return nil unless query_response[:FlexStatements]
-      
+
       statement = query_response[:FlexStatements][:FlexStatement]
       return nil unless statement
-      
+
       statements = statement.is_a?(Array) ? statement : [statement]
       performance_data = []
-      
+
       statements.each do |stmt|
         if stmt[:Performance] && stmt[:Performance][:PerformanceSummary]
           perf = stmt[:Performance][:PerformanceSummary]
           performance_data << parse_performance(perf, stmt[:accountId])
         end
       end
-      
+
       performance_data.compact
     end
 
@@ -459,7 +459,7 @@ module Ibkr
         currency: trade_data[:currency] || "USD",
         asset_class: trade_data[:assetCategory]
       }
-    rescue StandardError => e
+    rescue
       nil
     end
 
@@ -476,7 +476,7 @@ module Ibkr
         currency: position_data[:currency] || "USD",
         asset_class: position_data[:assetCategory] || "STK"
       }
-    rescue StandardError => e
+    rescue
       nil
     end
 
@@ -489,7 +489,7 @@ module Ibkr
         deposits: cash_data[:deposits].to_f,
         withdrawals: cash_data[:withdrawals].to_f
       }
-    rescue StandardError => e
+    rescue
       nil
     end
 
@@ -502,7 +502,7 @@ module Ibkr
         realized_pnl: perf_data[:total].to_f,
         unrealized_pnl: 0.0
       }
-    rescue StandardError => e
+    rescue
       nil
     end
 

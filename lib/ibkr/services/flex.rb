@@ -67,9 +67,9 @@ module Ibkr
       # @return [Array<FlexTransaction>] Array of transaction models
       def transactions_report(query_id, max_wait: 60)
         report_data = generate_and_fetch(query_id, max_wait: max_wait)
-        
+
         return [] unless report_data && report_data[:transactions]
-        
+
         report_data[:transactions].map do |txn_data|
           Models::FlexTransaction.new(txn_data)
         end
@@ -82,9 +82,9 @@ module Ibkr
       # @return [Array<FlexPosition>] Array of position models
       def positions_report(query_id, max_wait: 60)
         report_data = generate_and_fetch(query_id, max_wait: max_wait)
-        
+
         return [] unless report_data && report_data[:positions]
-        
+
         report_data[:positions].map do |pos_data|
           Models::FlexPosition.new(pos_data)
         end
@@ -97,9 +97,9 @@ module Ibkr
       # @return [FlexCashReport, nil] Cash report model or nil if not available
       def cash_report(query_id, max_wait: 60)
         report_data = generate_and_fetch(query_id, max_wait: max_wait)
-        
+
         return nil unless report_data && report_data[:cash_report]
-        
+
         cash_data = report_data[:cash_report].first
         Models::FlexCashReport.new(cash_data) if cash_data
       end
@@ -111,9 +111,9 @@ module Ibkr
       # @return [FlexPerformance, nil] Performance model or nil if not available
       def performance_report(query_id, max_wait: 60)
         report_data = generate_and_fetch(query_id, max_wait: max_wait)
-        
+
         return nil unless report_data && report_data[:performance]
-        
+
         perf_data = report_data[:performance].first
         Models::FlexPerformance.new(perf_data) if perf_data
       end
@@ -123,7 +123,7 @@ module Ibkr
       # @return [Boolean] true if token is configured
       def available?
         !@flex_client.token.nil?
-      rescue StandardError
+      rescue
         false
       end
 
