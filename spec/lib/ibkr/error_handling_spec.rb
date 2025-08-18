@@ -46,9 +46,8 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
         client.authenticate
       rescue
         # Application should be able to retry after timeout
-        # Check that no token was set in the authenticator
-        authenticator = client.oauth_client.authenticator
-        expect(authenticator.current_token).to be_nil
+        # Client should not be authenticated after timeout
+        expect(client.authenticated?).to be false
       end
     end
 
@@ -235,7 +234,7 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
 
     context "when API returns unexpected response format" do
       before do
-        allow(client.oauth_client).to receive(:get).and_return("not_json_response")
+        allow(client).to receive(:get).and_return("not_json_response")
       end
 
       it "handles malformed API responses gracefully" do
@@ -260,7 +259,7 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
       end
 
       before do
-        allow(client.oauth_client).to receive(:get).and_return(unexpected_summary_response)
+        allow(client).to receive(:get).and_return(unexpected_summary_response)
       end
 
       it "validates data structure and provides clear errors" do
@@ -280,7 +279,7 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
       end
 
       before do
-        allow(client.oauth_client).to receive(:get).and_return(invalid_numeric_response)
+        allow(client).to receive(:get).and_return(invalid_numeric_response)
         allow(accounts_service).to receive(:normalize_summary).and_return(invalid_numeric_response)
       end
 
@@ -296,7 +295,7 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
 
     context "when data transmission fails" do
       before do
-        allow(client.oauth_client).to receive(:get).and_raise(Zlib::GzipFile::Error, "Corrupted data")
+        allow(client).to receive(:get).and_raise(Zlib::GzipFile::Error, "Corrupted data")
       end
 
       it "handles data corruption during transmission" do
@@ -407,6 +406,7 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
       it "handles concurrent API requests safely" do
         oauth_client = double("oauth_client")
         allow(oauth_client).to receive(:get).and_return({"account_data" => "test"})
+        allow(oauth_client).to receive(:authenticated?).and_return(true)
         allow(client).to receive(:oauth_client).and_return(oauth_client)
 
         threads = Array.new(3) do
@@ -513,8 +513,8 @@ RSpec.describe "IBKR Client Error Handling and Edge Cases" do
 
     context "when account has no positions or transactions" do
       before do
-        allow(client.oauth_client).to receive(:get).and_return({"results" => []})
-        allow(client.oauth_client).to receive(:post).and_return([])
+        allow(client).to receive(:get).and_return({"results" => []})
+        allow(client).to receive(:post).and_return([])
       end
 
       it "handles empty portfolios gracefully" do

@@ -13,7 +13,7 @@ module Ibkr
       def find_summary(account_id)
         with_error_handling do
           ensure_authenticated!
-          response = client.oauth_client.get("/v1/api/portfolio/#{account_id}/summary")
+          response = client.get("/v1/api/portfolio/#{account_id}/summary")
           normalize_and_create_summary(response, account_id)
         end
       end
@@ -21,7 +21,7 @@ module Ibkr
       def find_metadata(account_id)
         with_error_handling do
           ensure_authenticated!
-          client.oauth_client.get("/v1/api/portfolio/#{account_id}/meta")
+          client.get("/v1/api/portfolio/#{account_id}/meta")
         end
       end
 
@@ -36,7 +36,7 @@ module Ibkr
             direction: options[:direction] || "asc"
           }
 
-          client.oauth_client.get(
+          client.get(
             "/v1/api/portfolio2/#{account_id}/positions",
             params: normalized_options
           )
@@ -54,7 +54,7 @@ module Ibkr
             "currency" => "USD"
           }
 
-          client.oauth_client.post("/v1/api/pa/transactions", body: body)
+          client.post("/v1/api/pa/transactions", body: body)
         end
       end
 
@@ -63,10 +63,10 @@ module Ibkr
           ensure_authenticated!
 
           # Initialize brokerage session if needed
-          client.oauth_client.initialize_session(priority: true)
+          client.initialize_session(priority: true)
 
           # Fetch available accounts from IBKR API
-          response = client.oauth_client.get("/v1/api/iserver/accounts")
+          response = client.get("/v1/api/iserver/accounts")
 
           # Extract account IDs from the response
           response["accounts"] || []

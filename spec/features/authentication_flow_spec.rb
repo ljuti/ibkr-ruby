@@ -17,7 +17,8 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         expect(client.live).to be false
 
         # When they initiate authentication
-        oauth_client = client.oauth_client
+        oauth_client = double("oauth_client")
+        allow(client).to receive(:oauth_client).and_return(oauth_client)
         expect(oauth_client).to receive(:authenticate).and_return(true)
         allow(oauth_client).to receive(:authenticated?).and_return(true)
         allow(oauth_client).to receive(:initialize_session).and_return(true)
@@ -31,7 +32,9 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
       it "handles authentication failures gracefully" do
         # Given a user attempts to authenticate
         # When the authentication process fails due to invalid credentials
-        expect(client.oauth_client).to receive(:authenticate).and_return(false)
+        oauth_client = double("oauth_client")
+        allow(client).to receive(:oauth_client).and_return(oauth_client)
+        expect(oauth_client).to receive(:authenticate).and_return(false)
 
         # Then they should receive a clear indication of failure
         result = client.authenticate
@@ -47,7 +50,8 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         expect(live_client.live).to be true
 
         # When they authenticate with live credentials
-        oauth_client = live_client.oauth_client
+        oauth_client = double("oauth_client", live: true)
+        allow(live_client).to receive(:oauth_client).and_return(oauth_client)
         expect(oauth_client).to receive(:authenticate).and_return(true)
         allow(oauth_client).to receive(:authenticated?).and_return(true)
         allow(oauth_client).to receive(:initialize_session).and_return(true)
@@ -56,14 +60,16 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
         # Then the system should apply enhanced security measures
         result = live_client.authenticate
         expect(result).to be true
-        expect(live_client.oauth_client.live).to be true
+        expect(live_client.live).to be true
       end
     end
   end
 
   describe "User manages their session lifecycle" do
+    let(:oauth_client) { double("oauth_client") }
+
     before do
-      oauth_client = client.oauth_client
+      allow(client).to receive(:oauth_client).and_return(oauth_client)
       allow(oauth_client).to receive(:authenticate).and_return(true)
       allow(oauth_client).to receive(:authenticated?).and_return(true)
       allow(oauth_client).to receive(:initialize_session).and_return(true)
@@ -74,7 +80,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
     it "can initialize a brokerage session for trading" do
       # Given an authenticated user
       # When they initialize a trading session
-      expect(client.oauth_client).to receive(:initialize_session).with(priority: false).and_return({"connected" => true})
+      expect(oauth_client).to receive(:initialize_session).with(priority: false).and_return({"connected" => true})
 
       # Then they should have an active trading session
       result = client.initialize_session
@@ -84,7 +90,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
     it "can logout and terminate their session securely" do
       # Given an authenticated user with an active session
       # When they choose to logout
-      expect(client.oauth_client).to receive(:logout).and_return(true)
+      expect(oauth_client).to receive(:logout).and_return(true)
 
       # Then their session should be securely terminated
       result = client.logout
@@ -94,7 +100,7 @@ RSpec.describe "Interactive Brokers Authentication Flow", type: :feature do
     it "can request priority session for urgent trading" do
       # Given an authenticated user needing priority access
       # When they request priority session initialization
-      expect(client.oauth_client).to receive(:initialize_session).with(priority: true).and_return({"priority" => true})
+      expect(oauth_client).to receive(:initialize_session).with(priority: true).and_return({"priority" => true})
 
       # Then they should receive priority trading access
       result = client.initialize_session(priority: true)

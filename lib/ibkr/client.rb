@@ -251,6 +251,9 @@ module Ibkr
 
     private
 
+    # Returns the OAuth client instance.
+    #
+    # @return [Ibkr::Oauth::Client] OAuth client instance
     def oauth_client
       @oauth_client ||= Oauth.new(config: @config, live: @live)
     end

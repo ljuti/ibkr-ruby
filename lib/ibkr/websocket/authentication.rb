@@ -149,7 +149,7 @@ module Ibkr
       # and extracts the session token needed for WebSocket authentication
       def get_session_token_from_tickle
         # Use the existing ping method which calls /tickle
-        response = @ibkr_client.oauth_client.ping
+        response = @ibkr_client.ping
 
         if response && response["session"]
           @session_data = response

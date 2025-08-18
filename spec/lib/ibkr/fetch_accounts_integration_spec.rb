@@ -61,8 +61,12 @@ RSpec.describe "Fetch Available Accounts Integration", type: :unit do
 
     context "when session initialization is required" do
       it "calls initialize_session before fetching accounts" do
-        oauth_client = client.oauth_client
+        oauth_client = double("oauth_client")
+        allow(client).to receive(:oauth_client).and_return(oauth_client)
+        expect(oauth_client).to receive(:authenticate).and_return(true)
+        allow(oauth_client).to receive(:authenticated?).and_return(true)
         expect(oauth_client).to receive(:initialize_session).with(priority: true).once
+        allow(oauth_client).to receive(:get).with("/v1/api/iserver/accounts").and_return({"accounts" => ["DU123456"]})
 
         client.authenticate
       end
